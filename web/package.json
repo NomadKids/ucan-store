@@ -17,7 +17,8 @@
     "test:e2e:headed": "HEADLESS=false playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "HEADLESS=false playwright test --debug",
-    "playwright:install": "playwright install chromium"
+    "playwright:install": "playwright install chromium",
+    "storacha:memory": "node ../local-storacha-api/index.mjs"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^16.1.5",
@@ -29,13 +30,15 @@
     "@libp2p/ping": "^2.0.37",
     "@libp2p/websockets": "^9.2.19",
     "@storacha/client": "^1.8.21",
-    "@ucanto/client": "^9.0.2",
-    "@ucanto/core": "^10.4.6",
-    "@ucanto/interface": "^11.0.1",
-    "@ucanto/principal": "^9.0.3",
-    "@ucanto/transport": "^9.2.1",
+    "@ucanto/client": "npm:@le-space/ucanto-client@^9.1.1",
+    "@ucanto/core": "npm:@le-space/ucanto-core@^10.5.1",
+    "@ucanto/interface": "npm:@le-space/ucanto-interface@^11.1.1",
+    "@ucanto/principal": "npm:@le-space/ucanto-principal@^9.1.2",
+    "@ucanto/transport": "npm:@le-space/ucanto-transport@^9.3.1",
     "cbor-web": "^9.0.1",
     "helia": "^5.0.0",
+    "iso-base": "npm:@le-space/iso-base@^4.3.0",
+    "iso-webauthn-varsig": "npm:@le-space/iso-webauthn-varsig@^0.1.0",
     "libp2p": "^2.10.0",
     "lucide-react": "^0.344.0",
     "multiformats": "^13.0.0",
@@ -67,5 +70,12 @@
     "vite": "^7.3.1",
     "vite-plugin-node-polyfills": "^0.24.0",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "@ucanto/interface": "npm:@le-space/ucanto-interface@^11.1.1",
+    "@ucanto/core": "npm:@le-space/ucanto-core@^10.5.1",
+    "@ucanto/principal": "npm:@le-space/ucanto-principal@^9.1.2",
+    "@ucanto/client": "npm:@le-space/ucanto-client@^9.1.1",
+    "@ucanto/validator": "npm:@le-space/ucanto-validator@^10.1.1"
   }
 }

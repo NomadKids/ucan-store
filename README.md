@@ -259,6 +259,32 @@ paired service from its own custom domain. If those variables are omitted, the
 app still supports runtime discovery through `UCAN_STORE_SERVICE_MANIFEST_URL`
 or the existing `VITE_*` fallback values.
 
+## Aleph Upload-Service VM
+
+The `Aleph Upload Service VM` workflow builds the `ucan-store` rootfs with the
+shared `NiKrause/relay-button` tooling. On `main` pushes it publishes a fresh
+rootfs when `local-storacha-api/`, the Aleph contract, or package lockfiles
+change. Manual runs can also deploy a VM from the published image.
+
+Required repository secrets for VM deploys:
+
+- `ALEPH_PRIVATE_KEY`: Ethereum private key used to publish the rootfs and
+  create the Aleph VM.
+- `VM_SSH_PUBLIC_KEY`: SSH public key installed into the VM unless the manual
+  workflow input overrides it.
+- `UCAN_STORE_BOOTSTRAP_JSON`: canonical bootstrap package containing the admin
+  DID, service DID/origin binding, space DID, allowed capabilities, and root
+  delegation proof.
+
+Recommended repository variables:
+
+- `UCAN_STORE_ADMIN_DID`: admin DID that owns the root delegation. The VM does
+  not receive the admin private key.
+- `ALEPH_VM_CRN_HASH`: optional target CRN hash for deployments.
+
+The base VM profile exposes only `22/tcp`, temporary setup `80/tcp`, and public
+HTTPS `443/tcp`. Public Helia/IPFS gateway exposure remains a later milestone.
+
 ### First-Time Setup
 
 **Option 1: Using Storacha CLI (Recommended for first browser)**
