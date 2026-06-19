@@ -1,0 +1,161 @@
+name: Aleph Upload Service VM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aleph/**'
+      - 'local-storacha-api/**'
+      - 'web/package.json'
+      - 'web/package-lock.json'
+      - '.github/workflows/aleph-service-vm.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the built rootfs to Aleph
+        required: false
+        default: true
+        type: boolean
+      deploy_vm:
+        description: Deploy a ucan-store upload-service VM after publishing
+        required: false
+        default: false
+        type: boolean
+      rootfs_version:
+        description: Optional explicit rootfs version
+        required: false
+        type: string
+      vm_name:
+        description: Aleph VM instance name
+        required: false
+        default: ucan-store
+        type: string
+      vm_ssh_public_key:
+        description: Optional SSH public key override for the deployed VM
+        required: false
+        type: string
+      vm_crn_hash:
+        description: Optional target CRN hash
+        required: false
+        type: string
+      vm_vcpus:
+        description: Requested vCPU count
+        required: false
+        default: '1'
+        type: string
+      vm_memory_mib:
+        description: Requested memory in MiB
+        required: false
+        default: '2048'
+        type: string
+      vm_rootfs_size_mib:
+        description: Rootfs disk size in MiB
+        required: false
+        default: '20480'
+        type: string
+      vm_preferred_country_code:
+        description: Preferred two-letter country code for automatic CRN selection
+        required: false
+        default: DE
+        type: string
+      vm_max_crn_attempts:
+        description: Maximum number of distinct CRNs to try
+        required: false
+        default: '5'
+        type: string
+      admin_did:
+        description: Optional admin DID override. Prefer automatic bootstrap derivation or the UCAN_STORE_ADMIN_DID repository variable.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ucan-store-service-vm-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-rootfs:
+    uses: NiKrause/relay-button/.github/workflows/aleph-rootfs-build-publish-deploy.yml@main
+    with:
+      profile: ucan-store
+      publish: ${{ github.event_name == 'push' || inputs.publish }}
+      rootfs_version: ${{ github.event_name == 'workflow_dispatch' && inputs.rootfs_version || '' }}
+      rootfs_contract_path: aleph/ucan-store.json
+      rootfs_driver: docker
+      tooling_repository: NiKrause/relay-button
+      tooling_ref: main
+    secrets:
+      ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
+
+  deploy-vm:
+    needs: build-rootfs
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_vm }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy ucan-store upload-service VM
+        id: deploy
+        uses: NiKrause/relay-button/.github/actions/aleph-vm-deploy@main
+        env:
+          ALEPH_VM_ADMIN_DID: ${{ inputs.admin_did != '' && inputs.admin_did || vars.UCAN_STORE_ADMIN_DID }}
+          ALEPH_VM_UCAN_STORE_BOOTSTRAP_JSON: ${{ secrets.UCAN_STORE_BOOTSTRAP_JSON }}
+        with:
+          profile: ucan-store
+          name: ${{ inputs.vm_name }}
+          aleph_private_key: ${{ secrets.ALEPH_PRIVATE_KEY }}
+          ssh_public_key: ${{ inputs.vm_ssh_public_key != '' && inputs.vm_ssh_public_key || secrets.VM_SSH_PUBLIC_KEY }}
+          rootfs_item_hash: ${{ needs.build-rootfs.outputs.rootfs_item_hash }}
+          rootfs_version: ${{ needs.build-rootfs.outputs.rootfs_version }}
+          rootfs_size_mib: ${{ inputs.vm_rootfs_size_mib }}
+          crn_hash: ${{ inputs.vm_crn_hash != '' && inputs.vm_crn_hash || vars.ALEPH_VM_CRN_HASH }}
+          preferred_country_code: ${{ inputs.vm_preferred_country_code }}
+          max_crn_attempts: ${{ inputs.vm_max_crn_attempts }}
+          vcpus: ${{ inputs.vm_vcpus }}
+          memory_mib: ${{ inputs.vm_memory_mib }}
+          enable_caddy_proxy: 'true'
+          auto_configure: 'true'
+          verify_reachability: 'true'
+          ucan_store_bootstrap_mode: ${{ vars.UCAN_STORE_BOOTSTRAP_MODE != '' && vars.UCAN_STORE_BOOTSTRAP_MODE || 'derive-from-aleph-private-key' }}
+          ucan_store_service_did: ${{ vars.UCAN_STORE_SERVICE_DID }}
+          ucan_store_service_origin: ${{ vars.UCAN_STORE_SERVICE_ORIGIN }}
+          ucan_store_pwa_origin: ${{ vars.UCAN_STORE_PWA_ORIGIN != '' && vars.UCAN_STORE_PWA_ORIGIN || (vars.UCAN_STORE_PWA_DOMAIN != '' && format('https://{0}', vars.UCAN_STORE_PWA_DOMAIN) || '') }}
+          ucan_store_allowed_capabilities: ${{ vars.UCAN_STORE_ALLOWED_CAPABILITIES }}
+          ucan_store_default_user_delegation_expiration: ${{ vars.UCAN_STORE_DEFAULT_USER_DELEGATION_EXPIRATION }}
+          ucan_store_max_delegation_expiration: ${{ vars.UCAN_STORE_MAX_DELEGATION_EXPIRATION }}
+          ucan_store_derivation_context: ${{ vars.UCAN_STORE_DERIVATION_CONTEXT }}
+          ucan_store_derivation_salt: ${{ vars.UCAN_STORE_DERIVATION_SALT }}
+          ucan_store_space_did_mode: ${{ vars.UCAN_STORE_SPACE_DID_MODE }}
+          required_ports_json: >-
+            [{"port":22,"tcp":true,"udp":false,"purpose":"SSH"},{"port":80,"tcp":true,"udp":false,"purpose":"Temporary setup endpoint"},{"port":443,"tcp":true,"udp":false,"purpose":"HTTPS upload API and service manifest"}]
+
+      - name: Summarize upload-service deployment
+        env:
+          INSTANCE_ITEM_HASH: ${{ steps.deploy.outputs.instance_item_hash }}
+          INSTANCE_STATUS: ${{ steps.deploy.outputs.instance_status }}
+          WEB_PROXY_URL: ${{ steps.deploy.outputs.web_proxy_url }}
+          SSH_COMMAND: ${{ steps.deploy.outputs.ssh_command }}
+          VERIFICATION_OK: ${{ steps.deploy.outputs.verification_ok }}
+          UCAN_STORE_BOOTSTRAP_ADMIN_DID: ${{ steps.deploy.outputs.ucan_store_bootstrap_admin_did }}
+          UCAN_STORE_BOOTSTRAP_SPACE_DID: ${{ steps.deploy.outputs.ucan_store_bootstrap_space_did }}
+        run: |
+          {
+            echo '## ucan-store upload-service VM'
+            echo
+            echo "- Instance item hash: ${INSTANCE_ITEM_HASH:-unknown}"
+            echo "- Status: ${INSTANCE_STATUS:-unknown}"
+            echo "- Web proxy URL: ${WEB_PROXY_URL:-unknown}"
+            echo "- Verification OK: ${VERIFICATION_OK:-unknown}"
+            if [[ -n "${SSH_COMMAND:-}" ]]; then
+              echo "- SSH: \`${SSH_COMMAND}\`"
+            fi
+            if [[ -n "${UCAN_STORE_BOOTSTRAP_ADMIN_DID:-}" ]]; then
+              echo "- Derived UCAN admin DID: \`${UCAN_STORE_BOOTSTRAP_ADMIN_DID}\`"
+            fi
+            if [[ -n "${UCAN_STORE_BOOTSTRAP_SPACE_DID:-}" ]]; then
+              echo "- Derived UCAN space DID: \`${UCAN_STORE_BOOTSTRAP_SPACE_DID}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

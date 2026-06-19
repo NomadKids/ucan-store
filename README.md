@@ -14,6 +14,7 @@ A browser-only file upload application powered by **WebAuthn DIDs**, **worker-ba
 - [🚀 Features](#-features)
 - [🔄 How It Works](#-how-it-works)
 - [📦 Setup](#-setup)
+- [Aleph IPFS Deployment](#aleph-ipfs-deployment)
 - [🔐 Security](#-security)
 - [🛠️ Technical Details](#️-technical-details)
 - [📝 Notes](#-notes)
@@ -191,6 +192,118 @@ cd web
 npm install
 npm run dev
 ```
+
+### Local In-Memory Storacha (3 terminals)
+Use this when you want the local upload service + Helia preview flow. The
+`storacha:memory` output includes a Helia multiaddr you should pass to the app.
+
+**Terminal 1: local upload API + Helia**
+```bash
+npm run storacha:memory
+```
+
+**Terminal 2: web app pointed at local API**
+```bash
+VITE_UPLOAD_SERVICE_URL=http://127.0.0.1:8787 \
+VITE_UPLOAD_SERVICE_DID=did:web:test.up.storacha.network \
+VITE_REVOCATION_URL=http://127.0.0.1:8787 \
+VITE_HELIA_ADDRS=/ip4/127.0.0.1/tcp/PORT/ws/p2p/PEER_ID \
+npm run dev:local
+```
+
+**Terminal 3: create a delegation (CLI or helper script)**
+```bash
+cd web
+node scripts/test-local-delegation.js
+```
+
+Then paste the delegation proof into the app.
+For more detail, see `docs/local-dev.md` (setup) and `docs/LOCAL_STORACHA_STATUS.md`
+(status, Helia notes, troubleshooting).
+
+## Aleph IPFS Deployment
+
+The `Aleph PWA Deploy` workflow builds the static Vite app in `web/`, publishes
+`web/dist` to Aleph IPFS, and can link a production domain for the PWA.
+
+Required repository secret:
+
+- `ALEPH_PRIVATE_KEY`: Ethereum private key used by the Aleph hosting action.
+
+Recommended repository variables:
+
+- `UCAN_STORE_PWA_DOMAIN`: custom frontend domain to attach to the Aleph site,
+  for example `upload.example.com`.
+- `UCAN_STORE_WEBSITE_NAME`: Aleph website identifier. Defaults to
+  `ucan-store`.
+- `UCAN_STORE_SERVICE_ORIGIN`: public origin of the paired upload-service VM,
+  for example `https://upload-api.example.com`.
+- `UCAN_STORE_SERVICE_DID`: DID of the paired upload-service VM.
+- `UCAN_STORE_SERVICE_MANIFEST_URL`: optional explicit manifest URL. Use this
+  when the PWA should read the manifest directly from the service domain.
+- `UCAN_STORE_REVOCATION_URL`, `UCAN_STORE_REVOCATION_DID`, and
+  `UCAN_STORE_RECEIPTS_URL`: optional runtime endpoints exposed to the app.
+- `UCAN_STORE_SPACE_DID`: optional space/resource DID written into the static
+  service manifest.
+- `UCAN_STORE_ALLOWED_CAPABILITIES`: optional comma-separated capability list
+  written into the static service manifest.
+- `ALEPH_OWNER_ADDRESS`: optional Aleph owner address when deploying on behalf
+  of another account. Leave this disabled when it is the same address as
+  `ALEPH_PRIVATE_KEY`; set `ALEPH_USE_OWNER_ADDRESS=true` only for delegated
+  owner billing.
+- `ALEPH_USE_OWNER_ADDRESS`: set to `true` to pass `ALEPH_OWNER_ADDRESS` into
+  the Aleph hosting action.
+- `ALEPH_RETENTION_DAYS`: optional cleanup window for older Aleph website
+  versions.
+
+When `UCAN_STORE_SERVICE_ORIGIN` and `UCAN_STORE_SERVICE_DID` are configured,
+the workflow writes both `/.well-known/ucan-store.json` and
+`/service-manifest.json` into the static bundle. The PWA can then resolve the
+paired service from its own custom domain. If those variables are omitted, the
+app still supports runtime discovery through `UCAN_STORE_SERVICE_MANIFEST_URL`
+or the existing `VITE_*` fallback values.
+
+## Aleph Upload-Service VM
+
+The `Aleph Upload Service VM` workflow builds the `ucan-store` rootfs with the
+shared `NiKrause/relay-button` tooling. On `main` pushes it publishes a fresh
+rootfs when `local-storacha-api/`, the Aleph contract, or package lockfiles
+change. Manual runs can also deploy a VM from the published image.
+
+Required repository secrets for VM deploys:
+
+- `ALEPH_PRIVATE_KEY`: Ethereum private key used to publish the rootfs and
+  create the Aleph VM. The default workflow also derives the UCAN admin Ed25519
+  key and root delegation proof from this key with relay-button's
+  domain-separated `derive-from-aleph-private-key` mode.
+- `VM_SSH_PUBLIC_KEY`: SSH public key installed into the VM unless the manual
+  workflow input overrides it.
+
+Optional repository secrets:
+
+- `UCAN_STORE_BOOTSTRAP_JSON`: canonical bootstrap package containing the admin
+  DID, service DID/origin binding, space DID, allowed capabilities, and root
+  delegation proof. When set, this explicit package overrides automatic
+  derivation.
+
+Recommended repository variables:
+
+- `UCAN_STORE_BOOTSTRAP_MODE`: bootstrap mode for VM deploys. Defaults to
+  `derive-from-aleph-private-key`.
+- `UCAN_STORE_SERVICE_DID`: public service DID, for example
+  `did:web:upload-api.example.com`.
+- `UCAN_STORE_SERVICE_ORIGIN`: public upload-service VM origin, for example
+  `https://upload-api.example.com`.
+- `UCAN_STORE_PWA_ORIGIN`: public PWA origin. If omitted, the workflow derives
+  it from `UCAN_STORE_PWA_DOMAIN`.
+- `UCAN_STORE_ALLOWED_CAPABILITIES`: comma-separated capability list included in
+  the generated root delegation.
+- `UCAN_STORE_ADMIN_DID`: optional manual admin DID hint. Automatic derivation
+  emits the actual admin DID in the workflow summary.
+- `ALEPH_VM_CRN_HASH`: optional target CRN hash for deployments.
+
+The base VM profile exposes only `22/tcp`, temporary setup `80/tcp`, and public
+HTTPS `443/tcp`. Public Helia/IPFS gateway exposure remains a later milestone.
 
 ### First-Time Setup
 

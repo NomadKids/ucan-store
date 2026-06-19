@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "ucan-store",
+  "displayName": "UCAN Store Upload Service",
+  "source": {
+    "repository": "self",
+    "subdirectory": "."
+  },
+  "rootfs": {
+    "profile": "ucan-store",
+    "installMode": "prebaked",
+    "installDir": "/opt/ucan-store",
+    "binaryPath": "/usr/local/bin/ucan-store",
+    "dataDir": "/var/lib/ucan-store",
+    "envFile": "/etc/default/ucan-store"
+  },
+  "services": {
+    "bootstrap": "ucan-store-bootstrap.service",
+    "main": "ucan-store.service",
+    "autotlsRefresh": "ucan-store-autotls-refresh.service"
+  },
+  "ports": [
+    {
+      "port": 22,
+      "tcp": true,
+      "udp": false,
+      "purpose": "SSH"
+    },
+    {
+      "port": 80,
+      "tcp": true,
+      "udp": false,
+      "purpose": "Temporary setup endpoint"
+    },
+    {
+      "port": 443,
+      "tcp": true,
+      "udp": false,
+      "purpose": "HTTPS upload API, did:web discovery, revocation, receipts, and service manifest"
+    }
+  ],
+  "manifest": {
+    "copyTarget": "web/public/rootfs/ucan-store/latest.json",
+    "notes": "The ucan-store image prebakes local-storacha-api plus web/package-lock dependencies into the Aleph guest, keeps the raw upload API on internal port 8787, exposes a temporary setup endpoint on port 80, and serves the public upload API through the shared ucan-store request guard and Caddy on port 443. Public Helia/libp2p gateway exposure is intentionally not part of this base profile."
+  }
+}

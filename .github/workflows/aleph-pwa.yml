@@ -1,0 +1,192 @@
+name: Aleph PWA Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/aleph-pwa.yml'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - 'web/**'
+      - '.github/workflows/aleph-pwa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
+      ALEPH_OWNER_ADDRESS: ${{ vars.ALEPH_OWNER_ADDRESS }}
+      ALEPH_RETENTION_DAYS: ${{ vars.ALEPH_RETENTION_DAYS }}
+      UCAN_STORE_PWA_DOMAIN: ${{ vars.UCAN_STORE_PWA_DOMAIN != '' && vars.UCAN_STORE_PWA_DOMAIN || vars.ALEPH_DOMAIN }}
+      UCAN_STORE_WEBSITE_NAME: ${{ vars.UCAN_STORE_WEBSITE_NAME != '' && vars.UCAN_STORE_WEBSITE_NAME || 'ucan-store' }}
+      UCAN_STORE_SERVICE_ORIGIN: ${{ vars.UCAN_STORE_SERVICE_ORIGIN != '' && vars.UCAN_STORE_SERVICE_ORIGIN || vars.UCAN_STORE_UPLOAD_SERVICE_URL }}
+      UCAN_STORE_SERVICE_DID: ${{ vars.UCAN_STORE_SERVICE_DID }}
+      UCAN_STORE_SERVICE_MANIFEST_URL: ${{ vars.UCAN_STORE_SERVICE_MANIFEST_URL }}
+      UCAN_STORE_REVOCATION_URL: ${{ vars.UCAN_STORE_REVOCATION_URL }}
+      UCAN_STORE_REVOCATION_DID: ${{ vars.UCAN_STORE_REVOCATION_DID }}
+      UCAN_STORE_RECEIPTS_URL: ${{ vars.UCAN_STORE_RECEIPTS_URL }}
+      UCAN_STORE_SPACE_DID: ${{ vars.UCAN_STORE_SPACE_DID }}
+      UCAN_STORE_ALLOWED_CAPABILITIES: ${{ vars.UCAN_STORE_ALLOWED_CAPABILITIES }}
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout code
+        if: github.event.action != 'closed'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: github.event.action != 'closed'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './web/package-lock.json'
+
+      - name: Install dependencies
+        if: github.event.action != 'closed'
+        run: npm ci
+
+      - name: Typecheck
+        if: github.event.action != 'closed'
+        run: npm run typecheck
+
+      - name: Run focused runtime tests
+        if: github.event.action != 'closed'
+        run: npm run test:run -- src/lib/service-config.test.ts src/lib/ucan-delegation.test.ts
+
+      - name: Build PWA
+        if: github.event.action != 'closed'
+        env:
+          VITE_SERVICE_MANIFEST_URL: ${{ env.UCAN_STORE_SERVICE_MANIFEST_URL }}
+          VITE_UPLOAD_SERVICE_URL: ${{ env.UCAN_STORE_SERVICE_ORIGIN }}
+          VITE_UPLOAD_SERVICE_DID: ${{ env.UCAN_STORE_SERVICE_DID }}
+          VITE_REVOCATION_URL: ${{ env.UCAN_STORE_REVOCATION_URL }}
+          VITE_REVOCATION_DID: ${{ env.UCAN_STORE_REVOCATION_DID }}
+          VITE_RECEIPTS_URL: ${{ env.UCAN_STORE_RECEIPTS_URL }}
+        run: npm run build
+
+      - name: Write optional same-origin service manifest
+        if: github.event.action != 'closed'
+        env:
+          PWA_DOMAIN: ${{ env.UCAN_STORE_PWA_DOMAIN }}
+          SERVICE_ORIGIN: ${{ env.UCAN_STORE_SERVICE_ORIGIN }}
+          SERVICE_DID: ${{ env.UCAN_STORE_SERVICE_DID }}
+          SPACE_DID: ${{ env.UCAN_STORE_SPACE_DID }}
+          REVOCATION_URL: ${{ env.UCAN_STORE_REVOCATION_URL }}
+          RECEIPTS_URL: ${{ env.UCAN_STORE_RECEIPTS_URL }}
+          ALLOWED_CAPABILITIES: ${{ env.UCAN_STORE_ALLOWED_CAPABILITIES }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SERVICE_ORIGIN:-}" || -z "${SERVICE_DID:-}" ]]; then
+            echo "Skipping same-origin service manifest because UCAN_STORE_SERVICE_ORIGIN or UCAN_STORE_SERVICE_DID is not configured."
+            exit 0
+          fi
+
+          mkdir -p dist/.well-known
+          node --input-type=module <<'NODE'
+          import { mkdirSync, writeFileSync } from 'node:fs'
+
+          const serviceOrigin = process.env.SERVICE_ORIGIN?.replace(/\/$/, '')
+          const serviceDid = process.env.SERVICE_DID
+          const pwaDomain = process.env.PWA_DOMAIN?.trim()
+          const allowedCapabilities = (process.env.ALLOWED_CAPABILITIES ?? '')
+            .split(',')
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+
+          const manifest = {
+            kind: 'ucan-store-service-manifest',
+            version: 1,
+            serviceDid,
+            serviceOrigin,
+            didDocument: `${serviceOrigin}/.well-known/did.json`,
+            pwaOrigin: pwaDomain ? `https://${pwaDomain.replace(/^https?:\/\//, '')}` : null,
+            spaceDid: process.env.SPACE_DID || null,
+            allowedCapabilities,
+            revocationUrl: process.env.REVOCATION_URL || serviceOrigin,
+            receiptsUrl: process.env.RECEIPTS_URL || `${serviceOrigin}/receipt/`,
+            delegationIssuance: {
+              enabled: true,
+              endpoint: '/admin/delegations',
+              policyEndpoint: '/admin/delegations/policy',
+              proofFormat: 'ucan-car-multibase-base64',
+            },
+            discovery: {
+              manifestPath: '/.well-known/ucan-store.json',
+              aliases: ['/service-manifest.json'],
+              binding: 'domain-first',
+            },
+          }
+
+          const payload = `${JSON.stringify({ status: 'ok', manifest }, null, 2)}\n`
+          mkdirSync('dist/.well-known', { recursive: true })
+          writeFileSync('dist/.well-known/ucan-store.json', payload)
+          writeFileSync('dist/service-manifest.json', payload)
+          NODE
+
+      - name: Deploy on Aleph
+        id: deploy
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            env.ALEPH_PRIVATE_KEY != ''
+          }}
+        uses: aleph-im/web3-hosting-action@88fe843f95190f949c306b0d8da50c9889ee57fe
+        with:
+          path: web/dist
+          private-key: ${{ env.ALEPH_PRIVATE_KEY }}
+          owner-address: ${{ vars.ALEPH_USE_OWNER_ADDRESS == 'true' && env.ALEPH_OWNER_ADDRESS || '' }}
+          website-name: ${{ env.UCAN_STORE_WEBSITE_NAME }}
+          domain: ${{ env.UCAN_STORE_PWA_DOMAIN }}
+          retention_days: ${{ env.ALEPH_RETENTION_DAYS }}
+
+      - name: Summarize skipped preview deploy
+        if: github.event_name == 'pull_request' && env.ALEPH_PRIVATE_KEY == ''
+        working-directory: .
+        run: |
+          {
+            echo '## Aleph Preview Deployment'
+            echo
+            echo '- Preview deployment was skipped because `ALEPH_PRIVATE_KEY` is not available to this pull request.'
+            echo '- Build, typecheck, and runtime-discovery tests still ran.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize deployment inputs
+        if: steps.deploy.outputs.url != ''
+        working-directory: .
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          DEPLOY_CID: ${{ steps.deploy.outputs.cid }}
+          DEPLOY_VERSION: ${{ steps.deploy.outputs.version }}
+        run: |
+          {
+            echo '## ucan-store PWA Deployment'
+            echo
+            echo "- URL: ${DEPLOY_URL}"
+            echo "- CID: ${DEPLOY_CID}"
+            if [[ -n "${DEPLOY_VERSION:-}" ]]; then
+              echo "- Version: ${DEPLOY_VERSION}"
+            fi
+            if [[ -n "${UCAN_STORE_PWA_DOMAIN:-}" ]]; then
+              echo "- Domain: ${UCAN_STORE_PWA_DOMAIN}"
+            fi
+            if [[ -n "${UCAN_STORE_SERVICE_MANIFEST_URL:-}" ]]; then
+              echo "- Service manifest URL: ${UCAN_STORE_SERVICE_MANIFEST_URL}"
+            elif [[ -n "${UCAN_STORE_SERVICE_ORIGIN:-}" ]]; then
+              echo "- Service origin: ${UCAN_STORE_SERVICE_ORIGIN}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
