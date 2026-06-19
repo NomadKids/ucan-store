@@ -294,8 +294,8 @@ Recommended repository variables:
   `did:web:upload-api.example.com`.
 - `UCAN_STORE_SERVICE_ORIGIN`: public upload-service VM origin, for example
   `https://upload-api.example.com`.
-- `UCAN_STORE_PWA_ORIGIN`: public PWA origin. If omitted, the workflow derives
-  it from `UCAN_STORE_PWA_DOMAIN`.
+- `UCAN_STORE_PWA_ORIGIN`: public PWA origin used in the derived bootstrap
+  package, for example `https://ucan.nicokrause.com`.
 - `UCAN_STORE_ALLOWED_CAPABILITIES`: comma-separated capability list included in
   the generated root delegation.
 - `UCAN_STORE_ADMIN_DID`: optional manual admin DID hint. Automatic derivation

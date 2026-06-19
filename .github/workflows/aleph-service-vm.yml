@@ -122,7 +122,7 @@ jobs:
           ucan_store_bootstrap_mode: ${{ vars.UCAN_STORE_BOOTSTRAP_MODE != '' && vars.UCAN_STORE_BOOTSTRAP_MODE || 'derive-from-aleph-private-key' }}
           ucan_store_service_did: ${{ vars.UCAN_STORE_SERVICE_DID }}
           ucan_store_service_origin: ${{ vars.UCAN_STORE_SERVICE_ORIGIN }}
-          ucan_store_pwa_origin: ${{ vars.UCAN_STORE_PWA_ORIGIN != '' && vars.UCAN_STORE_PWA_ORIGIN || (vars.UCAN_STORE_PWA_DOMAIN != '' && format('https://{0}', vars.UCAN_STORE_PWA_DOMAIN) || '') }}
+          ucan_store_pwa_origin: ${{ vars.UCAN_STORE_PWA_ORIGIN }}
           ucan_store_allowed_capabilities: ${{ vars.UCAN_STORE_ALLOWED_CAPABILITIES }}
           ucan_store_default_user_delegation_expiration: ${{ vars.UCAN_STORE_DEFAULT_USER_DELEGATION_EXPIRATION }}
           ucan_store_max_delegation_expiration: ${{ vars.UCAN_STORE_MAX_DELEGATION_EXPIRATION }}

@@ -39,8 +39,8 @@ local service can still enable its internal Helia helper with
 - `UCAN_STORE_SERVICE_DID`: public service DID, for example
   `did:web:ucan-api.example.com`.
 - `UCAN_STORE_SERVICE_ORIGIN`: public HTTPS origin of the upload-service VM.
-- `UCAN_STORE_PWA_ORIGIN`: public HTTPS origin of the paired PWA. If omitted,
-  the workflow derives it from `UCAN_STORE_PWA_DOMAIN`.
+- `UCAN_STORE_PWA_ORIGIN`: public HTTPS origin of the paired PWA, for example
+  `https://ucan.nicokrause.com`.
 - `UCAN_STORE_ALLOWED_CAPABILITIES`: comma-separated capabilities included in
   the generated bootstrap package.
 - `UCAN_STORE_ADMIN_DID`: DID of the admin that owns the root delegation. This
