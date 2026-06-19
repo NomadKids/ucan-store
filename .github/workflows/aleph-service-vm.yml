@@ -64,7 +64,7 @@ on:
         default: '5'
         type: string
       admin_did:
-        description: Optional admin DID override. Prefer the UCAN_STORE_ADMIN_DID repository variable.
+        description: Optional admin DID override. Prefer automatic bootstrap derivation or the UCAN_STORE_ADMIN_DID repository variable.
         required: false
         type: string
 
@@ -119,6 +119,16 @@ jobs:
           enable_caddy_proxy: 'true'
           auto_configure: 'true'
           verify_reachability: 'true'
+          ucan_store_bootstrap_mode: ${{ vars.UCAN_STORE_BOOTSTRAP_MODE != '' && vars.UCAN_STORE_BOOTSTRAP_MODE || 'derive-from-aleph-private-key' }}
+          ucan_store_service_did: ${{ vars.UCAN_STORE_SERVICE_DID }}
+          ucan_store_service_origin: ${{ vars.UCAN_STORE_SERVICE_ORIGIN }}
+          ucan_store_pwa_origin: ${{ vars.UCAN_STORE_PWA_ORIGIN != '' && vars.UCAN_STORE_PWA_ORIGIN || (vars.UCAN_STORE_PWA_DOMAIN != '' && format('https://{0}', vars.UCAN_STORE_PWA_DOMAIN) || '') }}
+          ucan_store_allowed_capabilities: ${{ vars.UCAN_STORE_ALLOWED_CAPABILITIES }}
+          ucan_store_default_user_delegation_expiration: ${{ vars.UCAN_STORE_DEFAULT_USER_DELEGATION_EXPIRATION }}
+          ucan_store_max_delegation_expiration: ${{ vars.UCAN_STORE_MAX_DELEGATION_EXPIRATION }}
+          ucan_store_derivation_context: ${{ vars.UCAN_STORE_DERIVATION_CONTEXT }}
+          ucan_store_derivation_salt: ${{ vars.UCAN_STORE_DERIVATION_SALT }}
+          ucan_store_space_did_mode: ${{ vars.UCAN_STORE_SPACE_DID_MODE }}
           required_ports_json: >-
             [{"port":22,"tcp":true,"udp":false,"purpose":"SSH"},{"port":80,"tcp":true,"udp":false,"purpose":"Temporary setup endpoint"},{"port":443,"tcp":true,"udp":false,"purpose":"HTTPS upload API and service manifest"}]
 
@@ -129,6 +139,8 @@ jobs:
           WEB_PROXY_URL: ${{ steps.deploy.outputs.web_proxy_url }}
           SSH_COMMAND: ${{ steps.deploy.outputs.ssh_command }}
           VERIFICATION_OK: ${{ steps.deploy.outputs.verification_ok }}
+          UCAN_STORE_BOOTSTRAP_ADMIN_DID: ${{ steps.deploy.outputs.ucan_store_bootstrap_admin_did }}
+          UCAN_STORE_BOOTSTRAP_SPACE_DID: ${{ steps.deploy.outputs.ucan_store_bootstrap_space_did }}
         run: |
           {
             echo '## ucan-store upload-service VM'
@@ -139,5 +151,11 @@ jobs:
             echo "- Verification OK: ${VERIFICATION_OK:-unknown}"
             if [[ -n "${SSH_COMMAND:-}" ]]; then
               echo "- SSH: \`${SSH_COMMAND}\`"
+            fi
+            if [[ -n "${UCAN_STORE_BOOTSTRAP_ADMIN_DID:-}" ]]; then
+              echo "- Derived UCAN admin DID: \`${UCAN_STORE_BOOTSTRAP_ADMIN_DID}\`"
+            fi
+            if [[ -n "${UCAN_STORE_BOOTSTRAP_SPACE_DID:-}" ]]; then
+              echo "- Derived UCAN space DID: \`${UCAN_STORE_BOOTSTRAP_SPACE_DID}\`"
             fi
           } >> "$GITHUB_STEP_SUMMARY"

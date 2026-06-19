@@ -269,17 +269,33 @@ change. Manual runs can also deploy a VM from the published image.
 Required repository secrets for VM deploys:
 
 - `ALEPH_PRIVATE_KEY`: Ethereum private key used to publish the rootfs and
-  create the Aleph VM.
+  create the Aleph VM. The default workflow also derives the UCAN admin Ed25519
+  key and root delegation proof from this key with relay-button's
+  domain-separated `derive-from-aleph-private-key` mode.
 - `VM_SSH_PUBLIC_KEY`: SSH public key installed into the VM unless the manual
   workflow input overrides it.
+
+Optional repository secrets:
+
 - `UCAN_STORE_BOOTSTRAP_JSON`: canonical bootstrap package containing the admin
   DID, service DID/origin binding, space DID, allowed capabilities, and root
-  delegation proof.
+  delegation proof. When set, this explicit package overrides automatic
+  derivation.
 
 Recommended repository variables:
 
-- `UCAN_STORE_ADMIN_DID`: admin DID that owns the root delegation. The VM does
-  not receive the admin private key.
+- `UCAN_STORE_BOOTSTRAP_MODE`: bootstrap mode for VM deploys. Defaults to
+  `derive-from-aleph-private-key`.
+- `UCAN_STORE_SERVICE_DID`: public service DID, for example
+  `did:web:upload-api.example.com`.
+- `UCAN_STORE_SERVICE_ORIGIN`: public upload-service VM origin, for example
+  `https://upload-api.example.com`.
+- `UCAN_STORE_PWA_ORIGIN`: public PWA origin. If omitted, the workflow derives
+  it from `UCAN_STORE_PWA_DOMAIN`.
+- `UCAN_STORE_ALLOWED_CAPABILITIES`: comma-separated capability list included in
+  the generated root delegation.
+- `UCAN_STORE_ADMIN_DID`: optional manual admin DID hint. Automatic derivation
+  emits the actual admin DID in the workflow summary.
 - `ALEPH_VM_CRN_HASH`: optional target CRN hash for deployments.
 
 The base VM profile exposes only `22/tcp`, temporary setup `80/tcp`, and public
