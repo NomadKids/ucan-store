@@ -248,7 +248,11 @@ Recommended repository variables:
 - `UCAN_STORE_ALLOWED_CAPABILITIES`: optional comma-separated capability list
   written into the static service manifest.
 - `ALEPH_OWNER_ADDRESS`: optional Aleph owner address when deploying on behalf
-  of another account.
+  of another account. Leave this disabled when it is the same address as
+  `ALEPH_PRIVATE_KEY`; set `ALEPH_USE_OWNER_ADDRESS=true` only for delegated
+  owner billing.
+- `ALEPH_USE_OWNER_ADDRESS`: set to `true` to pass `ALEPH_OWNER_ADDRESS` into
+  the Aleph hosting action.
 - `ALEPH_RETENTION_DAYS`: optional cleanup window for older Aleph website
   versions.
 

@@ -149,7 +149,7 @@ jobs:
         with:
           path: web/dist
           private-key: ${{ env.ALEPH_PRIVATE_KEY }}
-          owner-address: ${{ env.ALEPH_OWNER_ADDRESS }}
+          owner-address: ${{ vars.ALEPH_USE_OWNER_ADDRESS == 'true' && env.ALEPH_OWNER_ADDRESS || '' }}
           website-name: ${{ env.UCAN_STORE_WEBSITE_NAME }}
           domain: ${{ env.UCAN_STORE_PWA_DOMAIN }}
           retention_days: ${{ env.ALEPH_RETENTION_DAYS }}
