@@ -17,6 +17,15 @@ test.describe('Live ucan-store delegation and upload flow', () => {
     context = await browser.newContext();
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     page = await context.newPage();
+    page.on('console', (message) => {
+      console.log(`[browser:${message.type()}] ${message.text()}`);
+    });
+    page.on('pageerror', (error) => {
+      console.log(`[browser:pageerror] ${error.message}`);
+    });
+    page.on('requestfailed', (request) => {
+      console.log(`[browser:requestfailed] ${request.method()} ${request.url()} ${request.failure()?.errorText ?? ''}`);
+    });
     cdpSession = await enableVirtualAuthenticator(context);
 
     await page.goto('/');
