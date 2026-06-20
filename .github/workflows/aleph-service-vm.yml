@@ -67,6 +67,11 @@ on:
         required: false
         default: '5'
         type: string
+      vm_api_hosts:
+        description: Comma-, space-, or newline-separated Aleph API hosts to try in order during deploy-vm
+        required: false
+        default: 'https://api.aleph.im,https://api2.aleph.im,https://api3.aleph.im'
+        type: string
       admin_did:
         description: Optional admin DID override. Prefer automatic bootstrap derivation or the UCAN_STORE_ADMIN_DID repository variable.
         required: false
@@ -116,6 +121,7 @@ jobs:
           rootfs_item_hash: ${{ inputs.rootfs_item_hash != '' && inputs.rootfs_item_hash || needs.build-rootfs.outputs.rootfs_item_hash }}
           rootfs_version: ${{ needs.build-rootfs.outputs.rootfs_version }}
           rootfs_size_mib: ${{ inputs.vm_rootfs_size_mib }}
+          api_hosts: ${{ inputs.vm_api_hosts != '' && inputs.vm_api_hosts || vars.ALEPH_VM_API_HOSTS }}
           crn_hash: ${{ inputs.vm_crn_hash != '' && inputs.vm_crn_hash || vars.ALEPH_VM_CRN_HASH }}
           preferred_country_code: ${{ inputs.vm_preferred_country_code }}
           max_crn_attempts: ${{ inputs.vm_max_crn_attempts }}
