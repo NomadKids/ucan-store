@@ -117,6 +117,7 @@ jobs:
           max_crn_attempts: ${{ inputs.vm_max_crn_attempts }}
           vcpus: ${{ inputs.vm_vcpus }}
           memory_mib: ${{ inputs.vm_memory_mib }}
+          channel: TEST
           enable_caddy_proxy: 'true'
           auto_configure: 'true'
           verify_reachability: 'true'
