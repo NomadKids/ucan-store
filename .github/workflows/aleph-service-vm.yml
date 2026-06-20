@@ -25,6 +25,10 @@ on:
         description: Optional explicit rootfs version
         required: false
         type: string
+      rootfs_item_hash:
+        description: Optional already-published Aleph STORE item hash to deploy without republishing the rootfs
+        required: false
+        type: string
       vm_name:
         description: Aleph VM instance name
         required: false
@@ -109,7 +113,7 @@ jobs:
           name: ${{ inputs.vm_name }}
           aleph_private_key: ${{ secrets.ALEPH_PRIVATE_KEY }}
           ssh_public_key: ${{ inputs.vm_ssh_public_key != '' && inputs.vm_ssh_public_key || secrets.VM_SSH_PUBLIC_KEY }}
-          rootfs_item_hash: ${{ needs.build-rootfs.outputs.rootfs_item_hash }}
+          rootfs_item_hash: ${{ inputs.rootfs_item_hash != '' && inputs.rootfs_item_hash || needs.build-rootfs.outputs.rootfs_item_hash }}
           rootfs_version: ${{ needs.build-rootfs.outputs.rootfs_version }}
           rootfs_size_mib: ${{ inputs.vm_rootfs_size_mib }}
           crn_hash: ${{ inputs.vm_crn_hash != '' && inputs.vm_crn_hash || vars.ALEPH_VM_CRN_HASH }}
