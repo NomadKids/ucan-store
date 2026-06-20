@@ -1,5 +1,5 @@
 import { Shield } from 'lucide-react';
-import { UCANDelegationService } from '../lib/ucan-delegation';
+import type { UCANDelegationService } from '../lib/ucan-delegation';
 
 interface HeaderProps {
   delegationService?: UCANDelegationService;

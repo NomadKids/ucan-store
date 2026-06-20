@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Upload, FileText, X, Shield, Copy, Check, AlertCircle, Lock } from 'lucide-react';
-import { UCANDelegationService } from '../lib/ucan-delegation';
+import type { UCANDelegationService } from '../lib/ucan-delegation';
 import { WebAuthnDIDProvider } from '../lib/webauthn-did';
 
 interface UploadZoneProps {

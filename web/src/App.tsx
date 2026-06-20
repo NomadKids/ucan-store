@@ -1,15 +1,23 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useState, useCallback, useEffect, useRef } from 'react';
 import { Upload, Share, Download, Calendar, Clock, Trash2, RefreshCw, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { UploadZone } from './components/UploadZone';
 import { Alert } from './components/Alert';
-import { DelegationManager } from './components/DelegationManager';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useFileUpload } from './hooks/useFileUpload';
 import { UploadedFile } from './types/upload';
-import { loadIpfsBlobUrl, getGatewayUrl } from './lib/ipfs-fetch';
 
 type AppView = 'upload' | 'delegations';
+
+const DelegationManager = lazy(() =>
+  import('./components/DelegationManager').then((module) => ({
+    default: module.DelegationManager,
+  }))
+);
+
+function loadIpfsHelpers() {
+  return import('./lib/ipfs-fetch');
+}
 
 function App() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -20,7 +28,13 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('upload');
   const [didCreated, setDidCreated] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
-  const { uploadFile, isUploading, error, delegationService } = useFileUpload();
+  const {
+    uploadFile,
+    isUploading,
+    isDelegationServiceLoading,
+    error,
+    delegationService,
+  } = useFileUpload();
   const [hasDeleteCapability, setHasDeleteCapability] = useState(false);
   const [securityNoticeDismissed, setSecurityNoticeDismissed] = useState(() => {
     return localStorage.getItem('security_notice_dismissed') === 'true';
@@ -29,6 +43,10 @@ function App() {
   const previewUrlsRef = useRef<Record<string, string>>({});
   
   useEffect(() => {
+    if (!delegationService) {
+      return;
+    }
+
     // Check if DID is available
     const hasDID = !!delegationService.getCurrentDID();
     setDidCreated(hasDID);
@@ -41,7 +59,7 @@ function App() {
   useEffect(() => {
     const loadStorachaFiles = async () => {
       // Only try to load if we have a DID (authenticated)
-      if (!didCreated) {
+      if (!didCreated || !delegationService) {
         console.log('Skipping file load - DID not initialized yet');
         return;
       }
@@ -69,6 +87,10 @@ function App() {
   
   // Add a periodic check for DID creation (since it might happen async)
   useEffect(() => {
+    if (!delegationService) {
+      return;
+    }
+
     const interval = setInterval(() => {
       const hasDID = !!delegationService.getCurrentDID();
       if (hasDID !== didCreated) {
@@ -118,7 +140,8 @@ function App() {
           continue;
         }
         previewLoadingRef.current.add(file.root);
-        loadIpfsBlobUrl(file.root, { expectImage: true })
+        loadIpfsHelpers()
+          .then(({ loadIpfsBlobUrl }) => loadIpfsBlobUrl(file.root, { expectImage: true }))
           .then(({ url }) => {
             if (cancelled) {
               URL.revokeObjectURL(url);
@@ -143,6 +166,14 @@ function App() {
   }, [storachaFiles, previewUrls]);
 
   const handleFileSelect = useCallback(async (file: File) => {
+    if (!delegationService) {
+      setAlert({
+        type: 'error',
+        message: 'Upload service is still loading. Please try again in a moment.',
+      });
+      return;
+    }
+
     const result = await uploadFile(file);
 
     if (result && result.ok) {
@@ -183,6 +214,7 @@ function App() {
   const handleViewFile = useCallback(async (rootCid: string) => {
     const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
     try {
+      const { loadIpfsBlobUrl } = await loadIpfsHelpers();
       const { url } = await loadIpfsBlobUrl(rootCid);
       if (popup) {
         popup.location.href = url;
@@ -191,6 +223,7 @@ function App() {
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.warn('Failed to open via Helia and gateways:', error);
+      const { getGatewayUrl } = await loadIpfsHelpers();
       const fallbackUrl = getGatewayUrl(rootCid);
       if (popup) {
         popup.location.href = fallbackUrl;
@@ -201,6 +234,10 @@ function App() {
   }, []);
   
   const handleDeleteFile = useCallback(async (rootCid: string) => {
+    if (!delegationService) {
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this file?')) {
       return;
     }
@@ -233,12 +270,20 @@ function App() {
   }, [delegationService]);
 
   const handleDidCreated = () => {
+    if (!delegationService) {
+      return;
+    }
+
     // Callback for when DID is created
     const hasDID = !!delegationService.getCurrentDID();
     setDidCreated(hasDID);
   };
   
   const handleDelegationImported = useCallback(async () => {
+    if (!delegationService) {
+      return;
+    }
+
     // After importing a delegation, reload files and switch to upload view
     console.log('🎉 Delegation imported! Reloading files and switching to upload view...');
     
@@ -265,6 +310,10 @@ function App() {
   }, [delegationService]);
   
   const handleReloadFiles = useCallback(async () => {
+    if (!delegationService) {
+      return;
+    }
+
     setIsLoadingFiles(true);
     try {
       const files = await delegationService.listUploads();
@@ -326,12 +375,28 @@ function App() {
   const renderContent = () => {
     switch (currentView) {
       case 'delegations':
+        if (!delegationService) {
+          return (
+            <div className="max-w-2xl mx-auto px-6 py-12 text-center text-gray-600">
+              Loading delegation tools...
+            </div>
+          );
+        }
+
         return (
-          <DelegationManager 
-            delegationService={delegationService}
-            onDidCreated={handleDidCreated}
-            onDelegationImported={handleDelegationImported}
-          />
+          <Suspense
+            fallback={
+              <div className="max-w-2xl mx-auto px-6 py-12 text-center text-gray-600">
+                Loading delegation tools...
+              </div>
+            }
+          >
+            <DelegationManager 
+              delegationService={delegationService}
+              onDidCreated={handleDidCreated}
+              onDelegationImported={handleDelegationImported}
+            />
+          </Suspense>
         );
       
       case 'upload':
@@ -396,12 +461,18 @@ function App() {
                 </p>
               </div>
 
-              <UploadZone 
-                onFileSelect={handleFileSelect} 
-                isUploading={isUploading}
-                delegationService={delegationService}
-                onDidCreated={handleDidCreated}
-              />
+              {delegationService ? (
+                <UploadZone 
+                  onFileSelect={handleFileSelect} 
+                  isUploading={isUploading || isDelegationServiceLoading}
+                  delegationService={delegationService}
+                  onDidCreated={handleDidCreated}
+                />
+              ) : (
+                <div className="w-full max-w-2xl rounded-xl border border-blue-200 bg-blue-50 p-8 text-center text-blue-800">
+                  Loading UCAN wallet and upload capabilities...
+                </div>
+              )}
               
               {/* Show files from Storacha space */}
               {isLoadingFiles && (
@@ -410,7 +481,7 @@ function App() {
                 </div>
               )}
               
-              {(didCreated && (delegationService.getStorachaCredentials() || delegationService.getReceivedDelegations().length > 0)) && (
+              {(didCreated && delegationService && (delegationService.getStorachaCredentials() || delegationService.getReceivedDelegations().length > 0)) && (
                 <div className="w-full max-w-2xl mt-12">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Files in Storacha Space</h2>
@@ -560,7 +631,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <Header delegationService={delegationService} />
+        <Header delegationService={delegationService ?? undefined} />
         {renderNavigation()}
         <main>
           {renderContent()}

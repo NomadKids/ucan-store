@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Key, Shield, Copy, Check, AlertCircle } from 'lucide-react';
-import { UCANDelegationService } from '../lib/ucan-delegation';
+import type { UCANDelegationService } from '../lib/ucan-delegation';
 import { WebAuthnDIDProvider } from '../lib/webauthn-did';
 
 interface SetupProps {

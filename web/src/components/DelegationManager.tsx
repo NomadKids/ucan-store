@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Share, Copy, Check, Plus, Download, Upload, Shield, Trash2, ArrowRight, User, Clock, Key, XCircle, Ban } from 'lucide-react';
-import { UCANDelegationService, DelegationInfo } from '../lib/ucan-delegation';
+import type { UCANDelegationService, DelegationInfo } from '../lib/ucan-delegation';
 import { Setup } from './Setup';
 
 interface DelegationManagerProps {
