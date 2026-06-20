@@ -45,6 +45,10 @@ local service can still enable its internal Helia helper with
 - `UCAN_STORE_SERVICE_ORIGIN`: public HTTPS origin of the upload-service VM.
 - `UCAN_STORE_PWA_ORIGIN`: public HTTPS origin of the paired PWA, for example
   `https://ucan.nicokrause.com`.
+- `UCAN_STORE_API_DOMAIN`: optional Aleph instance custom domain for the upload
+  service VM, for example `ucan-api.nicokrause.com`. When set, the VM workflow
+  publishes an Aleph `domains` aggregate that points this domain to the deployed
+  instance.
 - `UCAN_STORE_ALLOWED_CAPABILITIES`: comma-separated capabilities included in
   the generated bootstrap package.
 - `UCAN_STORE_ADMIN_DID`: DID of the admin that owns the root delegation. This
@@ -56,3 +60,39 @@ local service can still enable its internal Helia helper with
 The upload-service VM must not receive the admin private key. It receives only
 the bootstrap package and validates that request proofs chain back to the root
 delegation.
+
+## API Domain and Delegation Endpoints
+
+The production deployment uses two separate domains:
+
+- PWA/static domain: `ucan.nicokrause.com`, served by Aleph IPFS hosting
+- API/service domain: `ucan-api.nicokrause.com`, served by the upload-service VM
+
+For the API/service domain, configure DNS as an Aleph instance custom domain:
+
+- `CNAME ucan-api.nicokrause.com -> ucan-api.nicokrause.com.instance.public.aleph.sh`
+- `TXT _control.ucan-api.nicokrause.com -> <Aleph deploy owner address>`
+- Cloudflare proxy mode must be DNS-only.
+
+The API/service domain is expected to expose:
+
+- `/.well-known/did.json`
+- `/.well-known/ucan-store.json`
+- `/service-manifest.json`
+- `/receipt/`
+- the UCAN upload API surface
+- `GET /admin/delegations/policy`
+- `POST /admin/delegations`
+
+`GET /admin/delegations/policy` and `POST /admin/delegations` require
+`Authorization: Bearer $UCAN_STORE_ADMIN_API_TOKEN` when issuance is enabled.
+They are used to mint long-lived, UI-importable child delegations from the
+service DID to a user DID.
+
+Implementation note: the shared `relay-button` deploy action publishes the
+Aleph instance-domain aggregate with `type: "instance"` and a numeric
+`updated_at` timestamp. If the public API domain presents the CRN frontend
+certificate or returns `404: Invalid message reference`, verify that the latest
+aggregate points to the current instance hash and that Aleph's
+`*.instance.public.aleph.sh` frontend has caught up before debugging the guest
+service itself.
