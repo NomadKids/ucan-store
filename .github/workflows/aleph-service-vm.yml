@@ -132,6 +132,7 @@ jobs:
           ucan_store_derivation_context: ${{ vars.UCAN_STORE_DERIVATION_CONTEXT }}
           ucan_store_derivation_salt: ${{ vars.UCAN_STORE_DERIVATION_SALT }}
           ucan_store_space_did_mode: ${{ vars.UCAN_STORE_SPACE_DID_MODE }}
+          ucan_store_admin_api_token: ${{ secrets.UCAN_STORE_ADMIN_API_TOKEN }}
           required_ports_json: >-
             [{"port":22,"tcp":true,"udp":false,"purpose":"SSH"},{"port":80,"tcp":true,"udp":false,"purpose":"Temporary setup endpoint"},{"port":443,"tcp":true,"udp":false,"purpose":"HTTPS upload API and service manifest"}]
 

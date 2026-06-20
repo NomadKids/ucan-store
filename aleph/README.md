@@ -30,6 +30,10 @@ local service can still enable its internal Helia helper with
   this explicit package overrides automatic derivation. It includes the admin
   DID, service DID/origin binding, space DID, allowed capabilities, and root
   delegation proof.
+- `UCAN_STORE_ADMIN_API_TOKEN`: optional bearer token installed on the VM to
+  enable `POST /admin/delegations` and `GET /admin/delegations/policy`. Set this
+  before deploying a VM when operators need the service to mint long-lived
+  user delegation proofs for manual UI import.
 
 ## Recommended Variables
 
