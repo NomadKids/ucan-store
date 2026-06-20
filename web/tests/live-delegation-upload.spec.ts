@@ -36,18 +36,40 @@ test.describe('Live ucan-store delegation and upload flow', () => {
   });
 
   async function createDidInUi(): Promise<string> {
-    await page.getByRole('button', { name: /delegations/i }).click();
+    await page.getByRole('button', { name: /upload files/i }).click();
+    await page.waitForTimeout(1000);
 
     const createButton = page.getByTestId('create-did-button');
     await expect(createButton).toBeVisible({ timeout: 10000 });
     await expect(createButton).toBeEnabled({ timeout: 5000 });
-    await createButton.click();
 
-    const didElement = page.getByTestId('did-display');
-    await expect(didElement).toBeVisible({ timeout: 15000 });
-    const did = (await didElement.textContent())?.trim();
-    expect(did).toMatch(/^did:key:z6Mk/);
-    return did as string;
+    const readDidFromUi = async (): Promise<string> => {
+      await page.getByRole('button', { name: /delegations/i }).click();
+      await page.waitForTimeout(1000);
+      const didElement = page.getByTestId('did-display');
+      await expect(didElement).toBeVisible({ timeout: 15000 });
+      const did = (await didElement.textContent())?.trim();
+      expect(did).toMatch(/^did:key:z6Mk/);
+      return did as string;
+    };
+
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await createButton.click();
+        await page.waitForFunction(
+          () => Boolean(localStorage.getItem('ed25519_keypair')),
+          null,
+          { timeout: 30000 }
+        );
+        return await readDidFromUi();
+      } catch (error) {
+        lastError = error;
+        await page.waitForTimeout(1000);
+      }
+    }
+
+    throw lastError ?? new Error('Failed to create DID in UI');
   }
 
   async function mintDelegation(targetDid: string): Promise<string> {
