@@ -118,6 +118,7 @@ jobs:
           vcpus: ${{ inputs.vm_vcpus }}
           memory_mib: ${{ inputs.vm_memory_mib }}
           channel: TEST
+          instance_custom_domain: ${{ vars.UCAN_STORE_API_DOMAIN }}
           enable_caddy_proxy: 'true'
           auto_configure: 'true'
           verify_reachability: 'true'
@@ -138,6 +139,10 @@ jobs:
         env:
           INSTANCE_ITEM_HASH: ${{ steps.deploy.outputs.instance_item_hash }}
           INSTANCE_STATUS: ${{ steps.deploy.outputs.instance_status }}
+          INSTANCE_CUSTOM_DOMAIN: ${{ steps.deploy.outputs.instance_custom_domain }}
+          INSTANCE_CUSTOM_DOMAIN_URL: ${{ steps.deploy.outputs.instance_custom_domain_url }}
+          INSTANCE_CUSTOM_DOMAIN_AGGREGATE_ITEM_HASH: ${{ steps.deploy.outputs.instance_custom_domain_aggregate_item_hash }}
+          INSTANCE_CUSTOM_DOMAIN_STATUS: ${{ steps.deploy.outputs.instance_custom_domain_status }}
           WEB_PROXY_URL: ${{ steps.deploy.outputs.web_proxy_url }}
           SSH_COMMAND: ${{ steps.deploy.outputs.ssh_command }}
           VERIFICATION_OK: ${{ steps.deploy.outputs.verification_ok }}
@@ -149,6 +154,8 @@ jobs:
             echo
             echo "- Instance item hash: ${INSTANCE_ITEM_HASH:-unknown}"
             echo "- Status: ${INSTANCE_STATUS:-unknown}"
+            echo "- Instance custom domain: ${INSTANCE_CUSTOM_DOMAIN_URL:-not configured}"
+            echo "- Instance custom-domain aggregate: ${INSTANCE_CUSTOM_DOMAIN_AGGREGATE_ITEM_HASH:-none} (${INSTANCE_CUSTOM_DOMAIN_STATUS:-unknown})"
             echo "- Web proxy URL: ${WEB_PROXY_URL:-unknown}"
             echo "- Verification OK: ${VERIFICATION_OK:-unknown}"
             if [[ -n "${SSH_COMMAND:-}" ]]; then
