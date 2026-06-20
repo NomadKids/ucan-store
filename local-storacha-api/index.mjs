@@ -1,4 +1,11 @@
-import { consumeBlobAddSpace, createCorsHttp, loadUploadApiTestContext, refreshExternalServiceProofs, startUploadApiServer } from './upload-service.mjs';
+import {
+  applyPublicStorageOrigin,
+  consumeBlobAddSpace,
+  createCorsHttp,
+  loadUploadApiTestContext,
+  refreshExternalServiceProofs,
+  startUploadApiServer,
+} from './upload-service.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -154,52 +161,58 @@ const { createContext, cleanupContext } = await loadUploadApiTestContext();
 console.log('📦 Creating in-memory upload service...');
 const heliaInfo = await maybeStartHeliaNode();
 
+const handleStoragePut = async ({ bytes, url }) => {
+  if (!heliaInfo.helia) {
+    return;
+  }
+  const pathname = url.split('?')[0] || '';
+  const filename = pathname.split('/').filter(Boolean).pop() || 'unknown';
+  console.log(`📥 Storage PUT received: ${filename} (${bytes.length} bytes)`);
+  try {
+    const { base58btc } = await importFromWeb('multiformats/bases/base58');
+    const Digest = await importFromWeb('multiformats/hashes/digest');
+    const { CID } = await importFromWeb('multiformats/cid');
+    const { CarBufferReader } = await importFromWeb('@ipld/car/buffer-reader');
+    const multihash = filename.replace(/\.blob$/, '');
+    const spaceDid = consumeBlobAddSpace(multihash);
+    if (!spaceDid) {
+      console.log(`ℹ️ Post-PUT check skipped: no space mapping for ${multihash}`);
+      return;
+    }
+    const digest = Digest.decode(base58btc.decode(multihash));
+    const reader = await CarBufferReader.fromBytes(bytes);
+    const roots = reader.getRoots().map((root) => root.toString());
+    let blockCount = 0;
+    for await (const block of reader.blocks()) {
+      await heliaInfo.helia.blockstore.put(block.cid, block.bytes);
+      blockCount += 1;
+    }
+    console.log(`🟣 Helia imported CAR blocks (${blockCount}) roots=${roots.join(', ')}`);
+    const registryRes = await uploadServiceContext.registry?.find?.(spaceDid, digest);
+    const hasBlob = uploadServiceContext.blobsStorage?.has
+      ? await uploadServiceContext.blobsStorage.has(digest)
+      : null;
+    const registryStatus = registryRes?.ok ? 'registered' : 'missing';
+    const storageStatus =
+      hasBlob?.ok === true ? 'stored' : hasBlob?.ok === false ? 'missing' : 'unknown';
+    console.log(
+      `✅ Post-PUT check: space=${spaceDid} multihash=${multihash} registry=${registryStatus} storage=${storageStatus}`
+    );
+  } catch (error) {
+    console.warn('⚠️ Post-PUT check failed:', error?.message ?? error);
+  }
+};
+
 const uploadServiceContext = await createContext({
   requirePaymentPlan: false,
   http: createCorsHttp({
-    onPutBytes: async ({ bytes, url }) => {
-      if (!heliaInfo.helia) {
-        return;
-      }
-      const pathname = url.split('?')[0] || '';
-      const filename = pathname.split('/').filter(Boolean).pop() || 'unknown';
-      console.log(`📥 Storage PUT received: ${filename} (${bytes.length} bytes)`);
-      try {
-        const { base58btc } = await importFromWeb('multiformats/bases/base58');
-        const Digest = await importFromWeb('multiformats/hashes/digest');
-        const { CID } = await importFromWeb('multiformats/cid');
-        const { CarBufferReader } = await importFromWeb('@ipld/car/buffer-reader');
-        const multihash = filename.replace(/\.blob$/, '');
-        const spaceDid = consumeBlobAddSpace(multihash);
-        if (!spaceDid) {
-          console.log(`ℹ️ Post-PUT check skipped: no space mapping for ${multihash}`);
-          return;
-        }
-        const digest = Digest.decode(base58btc.decode(multihash));
-        const reader = await CarBufferReader.fromBytes(bytes);
-        const roots = reader.getRoots().map((root) => root.toString());
-        let blockCount = 0;
-        for await (const block of reader.blocks()) {
-          await heliaInfo.helia.blockstore.put(block.cid, block.bytes);
-          blockCount += 1;
-        }
-        console.log(`🟣 Helia imported CAR blocks (${blockCount}) roots=${roots.join(', ')}`);
-        const registryRes = await uploadServiceContext.registry?.find?.(spaceDid, digest);
-        const hasBlob = uploadServiceContext.blobsStorage?.has
-          ? await uploadServiceContext.blobsStorage.has(digest)
-          : null;
-        const registryStatus = registryRes?.ok ? 'registered' : 'missing';
-        const storageStatus =
-          hasBlob?.ok === true ? 'stored' : hasBlob?.ok === false ? 'missing' : 'unknown';
-        console.log(
-          `✅ Post-PUT check: space=${spaceDid} multihash=${multihash} registry=${registryStatus} storage=${storageStatus}`
-        );
-      } catch (error) {
-        console.warn('⚠️ Post-PUT check failed:', error?.message ?? error);
-      }
-    },
+    onPutBytes: handleStoragePut,
   }),
 });
+applyPublicStorageOrigin(
+  uploadServiceContext,
+  process.env.UCAN_STORE_PUBLIC_STORAGE_ORIGIN ?? process.env.UCAN_STORE_SERVICE_ORIGIN
+);
 console.log('✅ Upload service created:', uploadServiceContext.id.did());
 await refreshExternalServiceProofs(uploadServiceContext);
 
@@ -209,6 +222,7 @@ const serverInfo = await startUploadApiServer(uploadServiceContext, {
   varsigModule,
   port,
   autoProvision: true,
+  onPutBytes: handleStoragePut,
   onListResults: async ({ can, results }) => {
     if (can !== 'upload/list' || !heliaInfo.helia) {
       return;

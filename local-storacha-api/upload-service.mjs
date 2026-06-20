@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -189,6 +190,129 @@ export function consumeBlobAddSpace(multihash) {
   const spaceDid = pendingBlobAdds.get(multihash) ?? null;
   pendingBlobAdds.delete(multihash);
   return spaceDid;
+}
+
+/**
+ * Point the in-memory Storacha storage buckets at the public service origin.
+ *
+ * The upstream test storage helper creates presigned HTTP PUT URLs using an
+ * internal localhost listener. That is fine for local tests, but a deployed PWA
+ * cannot reach the VM loopback address. In production we keep the same in-memory
+ * storage objects and only change the advertised base URL; public PUT/GET
+ * requests are handled by startUploadApiServer below.
+ *
+ * @param {object} context
+ * @param {string | undefined} origin
+ */
+export function applyPublicStorageOrigin(context, origin) {
+  if (!origin) {
+    return;
+  }
+  let publicOrigin = null;
+  try {
+    publicOrigin = new URL(origin);
+  } catch {
+    console.warn(`⚠️ Ignoring invalid public storage origin: ${origin}`);
+    return;
+  }
+  publicOrigin.pathname = '/';
+  publicOrigin.search = '';
+  publicOrigin.hash = '';
+
+  for (const storage of [context?.blobsStorage, context?.carStoreBucket]) {
+    if (storage?.baseURL) {
+      storage.baseURL = publicOrigin;
+    }
+  }
+  console.log(`🌍 Public storage PUT origin: ${publicOrigin.toString().replace(/\/$/, '')}`);
+}
+
+function isBucketPath(storage, pathname) {
+  const bucket = storage?.bucket;
+  return Boolean(bucket && pathname.startsWith(`/${bucket}/`));
+}
+
+function getStorageForPath(context, pathname) {
+  if (isBucketPath(context?.blobsStorage, pathname) && pathname.endsWith('.blob')) {
+    return context.blobsStorage;
+  }
+  if (isBucketPath(context?.carStoreBucket, pathname) && pathname.endsWith('.car')) {
+    return context.carStoreBucket;
+  }
+  return null;
+}
+
+async function readRequestBytes(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Handle public bucket URLs emitted by the in-memory Storacha test stores.
+ *
+ * @param {object} context
+ * @param {import('http').IncomingMessage} req
+ * @param {import('http').ServerResponse} res
+ * @param {(info: { bytes: Uint8Array, url: string, headers: import('http').IncomingHttpHeaders }) => void | Promise<void>} [onPutBytes]
+ * @returns {Promise<boolean>}
+ */
+async function handlePublicStorageRequest(context, req, res, onPutBytes) {
+  const { pathname } = new URL(req.url || '/', 'http://localhost');
+  const storage = getStorageForPath(context, pathname);
+  if (!storage?.content) {
+    return false;
+  }
+
+  if (req.method === 'GET') {
+    const data = storage.content.get(pathname);
+    if (!data) {
+      res.writeHead(404, { 'Access-Control-Allow-Origin': '*' });
+      res.end();
+      return true;
+    }
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/octet-stream',
+    });
+    res.end(data);
+    return true;
+  }
+
+  if (req.method !== 'PUT') {
+    return false;
+  }
+
+  const bytes = await readRequestBytes(req);
+  const checksum = crypto.createHash('sha256').update(bytes).digest('base64');
+  const expectedChecksum = req.headers['x-amz-checksum-sha256'];
+  if (expectedChecksum && checksum !== expectedChecksum) {
+    res.writeHead(400, {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'text/plain',
+    });
+    res.end('checksum mismatch');
+    return true;
+  }
+
+  storage.content.set(pathname, new Uint8Array(bytes));
+  if (onPutBytes) {
+    Promise.resolve(
+      onPutBytes({
+        bytes: new Uint8Array(bytes),
+        url: req.url ?? '',
+        headers: req.headers ?? {},
+      })
+    ).catch((error) => {
+      console.warn('⚠️ onPutBytes handler failed:', error?.message ?? error);
+    });
+  }
+
+  res.writeHead(200, { 'Access-Control-Allow-Origin': '*' });
+  res.end();
+  return true;
 }
 
 /**
@@ -444,6 +568,7 @@ async function createVarsigPrincipal(varsigModule = null) {
  * @param {unknown} [options.varsigModule]
  * @param {(invocation: unknown) => Promise<void>} [options.onInvocation]
  * @param {(payload: { can: string; results: unknown[] }) => Promise<void>} [options.onListResults]
+ * @param {(info: { bytes: Uint8Array, url: string, headers: import('http').IncomingHttpHeaders }) => void | Promise<void>} [options.onPutBytes]
  * @param {(info: { bytes: Uint8Array, url: string, headers: import('http').IncomingHttpHeaders }) => void | Promise<void>} [options.onCarBytes]
  * @returns {Promise<{ server: import('http').Server, url: string }>}
  */
@@ -456,7 +581,7 @@ export async function startUploadApiServer(context, options = {}) {
   const { base58btc } = await importFromWeb('multiformats/bases/base58');
   const principal = await createVarsigPrincipal(options.varsigModule);
 
-  const { onInvocation, onListResults, port, autoProvision, onCarBytes } = options;
+  const { onInvocation, onListResults, port, autoProvision, onPutBytes, onCarBytes } = options;
   const revocations = new Map();
   const agent = createServer({
     ...context,
@@ -475,11 +600,15 @@ export async function startUploadApiServer(context, options = {}) {
     if (req.method === 'OPTIONS') {
       res.writeHead(200, {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Amz-Checksum-Sha256',
         'Access-Control-Max-Age': '86400',
       });
       res.end();
+      return;
+    }
+
+    if (await handlePublicStorageRequest(context, req, res, onPutBytes)) {
       return;
     }
 
