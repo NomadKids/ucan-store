@@ -148,30 +148,61 @@ jobs:
 
       - name: Summarize upload-service deployment
         env:
+          ROOTFS_ITEM_HASH: ${{ needs.build-rootfs.outputs.rootfs_item_hash }}
+          ROOTFS_VERSION: ${{ needs.build-rootfs.outputs.rootfs_version }}
+          ROOTFS_MANIFEST_GATEWAY_URL: ${{ needs.build-rootfs.outputs.rootfs_manifest_gateway_url }}
           INSTANCE_ITEM_HASH: ${{ steps.deploy.outputs.instance_item_hash }}
           INSTANCE_STATUS: ${{ steps.deploy.outputs.instance_status }}
+          PORT_FORWARD_AGGREGATE_ITEM_HASH: ${{ steps.deploy.outputs.port_forward_aggregate_item_hash }}
+          PORT_FORWARD_STATUS: ${{ steps.deploy.outputs.port_forward_status }}
           INSTANCE_CUSTOM_DOMAIN: ${{ steps.deploy.outputs.instance_custom_domain }}
           INSTANCE_CUSTOM_DOMAIN_URL: ${{ steps.deploy.outputs.instance_custom_domain_url }}
           INSTANCE_CUSTOM_DOMAIN_AGGREGATE_ITEM_HASH: ${{ steps.deploy.outputs.instance_custom_domain_aggregate_item_hash }}
           INSTANCE_CUSTOM_DOMAIN_STATUS: ${{ steps.deploy.outputs.instance_custom_domain_status }}
+          CRN_NAME: ${{ steps.deploy.outputs.crn_name }}
+          CRN_URL: ${{ steps.deploy.outputs.crn_url }}
+          HOST_IPV4: ${{ steps.deploy.outputs.host_ipv4 }}
+          IPV6: ${{ steps.deploy.outputs.ipv6 }}
           WEB_PROXY_URL: ${{ steps.deploy.outputs.web_proxy_url }}
           SSH_COMMAND: ${{ steps.deploy.outputs.ssh_command }}
+          SETUP_ENDPOINT_OK: ${{ steps.deploy.outputs.setup_endpoint_ok }}
           VERIFICATION_OK: ${{ steps.deploy.outputs.verification_ok }}
+          MAPPED_PORTS_JSON: ${{ steps.deploy.outputs.mapped_ports_json }}
+          CONFIGURATION_JSON: ${{ steps.deploy.outputs.configuration_json }}
+          RUNTIME_JSON: ${{ steps.deploy.outputs.runtime_json }}
           UCAN_STORE_BOOTSTRAP_ADMIN_DID: ${{ steps.deploy.outputs.ucan_store_bootstrap_admin_did }}
           UCAN_STORE_BOOTSTRAP_SPACE_DID: ${{ steps.deploy.outputs.ucan_store_bootstrap_space_did }}
         run: |
           {
             echo '## ucan-store upload-service VM'
             echo
+            echo '### Build input'
+            echo
+            echo "- Rootfs version: ${ROOTFS_VERSION:-unknown}"
+            echo "- Rootfs Aleph item hash: ${ROOTFS_ITEM_HASH:-unknown}"
+            if [[ -n "${ROOTFS_MANIFEST_GATEWAY_URL:-}" ]]; then
+              echo "- Rootfs manifest: ${ROOTFS_MANIFEST_GATEWAY_URL}"
+            fi
+            echo
+            echo '### Aleph instance'
+            echo
             echo "- Instance item hash: ${INSTANCE_ITEM_HASH:-unknown}"
             echo "- Status: ${INSTANCE_STATUS:-unknown}"
+            echo "- CRN: ${CRN_NAME:-unknown}"
+            echo "- CRN URL: ${CRN_URL:-unknown}"
+            echo "- Host IPv4: ${HOST_IPV4:-unknown}"
+            echo "- IPv6: ${IPV6:-unknown}"
+            echo "- Port-forward aggregate: ${PORT_FORWARD_AGGREGATE_ITEM_HASH:-none} (${PORT_FORWARD_STATUS:-unknown})"
             echo "- Instance custom domain: ${INSTANCE_CUSTOM_DOMAIN_URL:-not configured}"
             echo "- Instance custom-domain aggregate: ${INSTANCE_CUSTOM_DOMAIN_AGGREGATE_ITEM_HASH:-none} (${INSTANCE_CUSTOM_DOMAIN_STATUS:-unknown})"
             echo "- Web proxy URL: ${WEB_PROXY_URL:-unknown}"
+            echo "- Setup endpoint OK: ${SETUP_ENDPOINT_OK:-unknown}"
             echo "- Verification OK: ${VERIFICATION_OK:-unknown}"
             if [[ -n "${SSH_COMMAND:-}" ]]; then
               echo "- SSH: \`${SSH_COMMAND}\`"
             fi
+            echo
+            echo '> Runtime access is a point-in-time snapshot. If the instance is later forgotten, retained away, or migrated, re-check the INSTANCE item hash before reusing the SSH command or custom-domain result.'
             if [[ -n "${UCAN_STORE_BOOTSTRAP_ADMIN_DID:-}" ]]; then
               echo "- Derived UCAN admin DID: \`${UCAN_STORE_BOOTSTRAP_ADMIN_DID}\`"
             fi
@@ -179,3 +210,52 @@ jobs:
               echo "- Derived UCAN space DID: \`${UCAN_STORE_BOOTSTRAP_SPACE_DID}\`"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs'
+
+          const summaryPath = process.env.GITHUB_STEP_SUMMARY
+          if (!summaryPath) process.exit(0)
+
+          function parseJson(name, fallback) {
+            const raw = process.env[name]
+            if (!raw) return fallback
+            try {
+              return JSON.parse(raw)
+            } catch {
+              return fallback
+            }
+          }
+
+          const configuration = parseJson('CONFIGURATION_JSON', {})
+          const metadata = configuration?.metadata ?? {}
+          const bootstrapValidation = metadata?.bootstrap_validation ?? {}
+          const proofValidation = metadata?.bootstrap_proof_validation ?? {}
+          const mappedPorts = parseJson('MAPPED_PORTS_JSON', {})
+          const runtime = parseJson('RUNTIME_JSON', {})
+          const diagnostics = runtime?.diagnostics ?? {}
+
+          const lines = [
+            '',
+            '### Service configuration',
+            '',
+            `- Upload service URL: ${metadata.upload_service_url ?? 'unknown'}`,
+            `- Upload service DID: \`${metadata.upload_service_did ?? 'unknown'}\``,
+            `- Service manifest: ${metadata.service_manifest?.endpoint ?? 'unknown'}`,
+            `- Revocation URL: ${metadata.revocation_url ?? 'unknown'}`,
+            `- Receipts URL: ${metadata.receipts_url ?? 'unknown'}`,
+            `- WebAuthn origin: ${metadata.webauthn_origin ?? 'unknown'}`,
+            `- Bootstrap package: \`${bootstrapValidation.status ?? 'unknown'}\``,
+            `- Bootstrap proof: \`${proofValidation.status ?? 'unknown'}\``,
+            `- Runtime diagnostics: \`${diagnostics.state ?? 'unknown'}\``,
+            `- Runtime reason: \`${diagnostics.reason ?? 'none'}\``,
+            '',
+            '### Port mappings',
+            '',
+            '```json',
+            JSON.stringify(mappedPorts, null, 2),
+            '```',
+            '',
+          ]
+
+          appendFileSync(summaryPath, `${lines.join('\n')}\n`)
+          NODE
