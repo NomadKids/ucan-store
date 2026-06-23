@@ -39,6 +39,9 @@ jobs:
       UCAN_STORE_RECEIPTS_URL: ${{ vars.UCAN_STORE_RECEIPTS_URL }}
       UCAN_STORE_SPACE_DID: ${{ vars.UCAN_STORE_SPACE_DID }}
       UCAN_STORE_ALLOWED_CAPABILITIES: ${{ vars.UCAN_STORE_ALLOWED_CAPABILITIES }}
+      ALEPH_SITE_ALEPH_API_HOSTS: ${{ vars.ALEPH_SITE_ALEPH_API_HOSTS != '' && vars.ALEPH_SITE_ALEPH_API_HOSTS || vars.ALEPH_VM_API_HOSTS != '' && vars.ALEPH_VM_API_HOSTS || 'https://api.aleph.im,https://api2.aleph.im,https://api3.aleph.im' }}
+      ALEPH_SITE_IPFS_GATEWAYS: ${{ vars.ALEPH_SITE_IPFS_GATEWAYS != '' && vars.ALEPH_SITE_IPFS_GATEWAYS || 'https://ipfs-2.aleph.im' }}
+      ALEPH_SITE_RETENTION_KEEP_COUNT: ${{ vars.ALEPH_SITE_RETENTION_KEEP_COUNT != '' && vars.ALEPH_SITE_RETENTION_KEEP_COUNT || '' }}
     defaults:
       run:
         working-directory: web
@@ -138,6 +141,30 @@ jobs:
           writeFileSync('dist/service-manifest.json', payload)
           NODE
 
+      - name: Checkout relay-button site runner
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            env.ALEPH_PRIVATE_KEY != ''
+          }}
+        uses: actions/checkout@v4
+        with:
+          repository: NiKrause/relay-button
+          ref: main
+          path: .relay-button-site-runner
+
+      - name: Prepare relay-button site runner
+        if: >-
+          ${{
+            github.event_name != 'pull_request' ||
+            env.ALEPH_PRIVATE_KEY != ''
+          }}
+        working-directory: .relay-button-site-runner
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @le-space/node build:publish
+
       - name: Deploy on Aleph
         id: deploy
         if: >-
@@ -145,14 +172,33 @@ jobs:
             github.event_name != 'pull_request' ||
             env.ALEPH_PRIVATE_KEY != ''
           }}
-        uses: aleph-im/web3-hosting-action@88fe843f95190f949c306b0d8da50c9889ee57fe
-        with:
-          path: web/dist
-          private-key: ${{ env.ALEPH_PRIVATE_KEY }}
-          owner-address: ${{ vars.ALEPH_USE_OWNER_ADDRESS == 'true' && env.ALEPH_OWNER_ADDRESS || '' }}
-          website-name: ${{ env.UCAN_STORE_WEBSITE_NAME }}
-          domain: ${{ env.UCAN_STORE_PWA_DOMAIN }}
-          retention_days: ${{ env.ALEPH_RETENTION_DAYS }}
+        working-directory: .relay-button-site-runner
+        env:
+          ALEPH_VM_MODE: site-publish
+          ALEPH_SITE_PROJECT_DIR: ${{ github.workspace }}
+          ALEPH_SITE_DIRECTORY: web/dist
+          ALEPH_SITE_REF: ${{ env.UCAN_STORE_WEBSITE_NAME }}
+          ALEPH_SITE_PIN: 'true'
+          ALEPH_SITE_CHANNEL: ALEPH-CLOUDSOLUTIONS
+        run: |
+          node --input-type=module -e "const { runSiteMode } = await import('./packages/node/dist/index.js'); await runSiteMode();"
+
+      - name: Link Aleph PWA domain
+        id: domain
+        if: >-
+          ${{
+            steps.deploy.outputs.item_hash != '' &&
+            env.UCAN_STORE_PWA_DOMAIN != ''
+          }}
+        working-directory: .relay-button-site-runner
+        env:
+          ALEPH_VM_MODE: site-domain-link
+          ALEPH_SITE_DOMAIN: ${{ env.UCAN_STORE_PWA_DOMAIN }}
+          ALEPH_SITE_ITEM_HASH: ${{ steps.deploy.outputs.item_hash }}
+          ALEPH_SITE_DOMAIN_CATCH_ALL_PATH: /index.html
+          ALEPH_SITE_CHANNEL: ALEPH-CLOUDSOLUTIONS
+        run: |
+          node --input-type=module -e "const { runSiteMode } = await import('./packages/node/dist/index.js'); await runSiteMode();"
 
       - name: Summarize skipped preview deploy
         if: github.event_name == 'pull_request' && env.ALEPH_PRIVATE_KEY == ''
@@ -169,17 +215,17 @@ jobs:
         if: steps.deploy.outputs.url != ''
         working-directory: .
         env:
-          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
-          DEPLOY_CID: ${{ steps.deploy.outputs.cid }}
-          DEPLOY_VERSION: ${{ steps.deploy.outputs.version }}
+          DEPLOY_URL: ${{ steps.domain.outputs.url != '' && steps.domain.outputs.url || steps.deploy.outputs.url }}
+          DEPLOY_CID: ${{ steps.deploy.outputs.ipfs_cid_v1 != '' && steps.deploy.outputs.ipfs_cid_v1 || steps.deploy.outputs.ipfs_cid_v0 }}
+          DEPLOY_ITEM_HASH: ${{ steps.deploy.outputs.item_hash }}
         run: |
           {
             echo '## ucan-store PWA Deployment'
             echo
             echo "- URL: ${DEPLOY_URL}"
             echo "- CID: ${DEPLOY_CID}"
-            if [[ -n "${DEPLOY_VERSION:-}" ]]; then
-              echo "- Version: ${DEPLOY_VERSION}"
+            if [[ -n "${DEPLOY_ITEM_HASH:-}" ]]; then
+              echo "- Aleph item hash: ${DEPLOY_ITEM_HASH}"
             fi
             if [[ -n "${UCAN_STORE_PWA_DOMAIN:-}" ]]; then
               echo "- Domain: ${UCAN_STORE_PWA_DOMAIN}"
