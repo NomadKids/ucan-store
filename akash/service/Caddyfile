@@ -1,0 +1,43 @@
+:8080 {
+  encode zstd gzip
+
+  header {
+    Access-Control-Allow-Origin "*"
+    Access-Control-Allow-Methods "GET, POST, PUT, OPTIONS"
+    Access-Control-Allow-Headers "Content-Type, Authorization, X-Amz-Checksum-Sha256"
+  }
+
+  @options method OPTIONS
+  respond @options 204
+
+  handle /.well-known/ucan-store.json {
+    root * /app/runtime
+    rewrite * /.well-known/ucan-store.json
+    file_server
+  }
+
+  handle /.well-known/did.json {
+    root * /app/runtime
+    rewrite * /.well-known/did.json
+    file_server
+  }
+
+  handle /service-manifest.json {
+    root * /app/runtime
+    rewrite * /service-manifest.json
+    file_server
+  }
+
+  handle_path /api/* {
+    reverse_proxy 127.0.0.1:8787
+  }
+
+  handle /ipfs/* {
+    reverse_proxy 127.0.0.1:8081
+  }
+
+  handle {
+    rewrite * /ipfs/{env.UCAN_STORE_UI_CID}{uri}
+    reverse_proxy 127.0.0.1:8081
+  }
+}

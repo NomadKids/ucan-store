@@ -1,0 +1,37 @@
+version: "2.0"
+
+services:
+  ucan-store:
+    image: ${IMAGE}
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+    env:
+      - UCAN_STORE_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
+      - UCAN_STORE_DATA_DIR=/data/ucan-store
+      - IPFS_PATH=/data/ipfs
+
+profiles:
+  compute:
+    ucan-store:
+      resources:
+        cpu:
+          units: ${CPU_UNITS}
+        memory:
+          size: ${MEMORY_SIZE}
+        storage:
+          - size: ${STORAGE_SIZE}
+  placement:
+    dcloud:
+      pricing:
+        ucan-store:
+          denom: ${PRICE_DENOM}
+          amount: ${PRICE_AMOUNT}
+
+deployment:
+  ucan-store:
+    dcloud:
+      profile: ucan-store
+      count: 1
