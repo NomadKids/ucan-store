@@ -20,4 +20,10 @@ The implementation should be adapted from the current `akash-deploy-pwa` approac
 - `src/wallet/keplr.ts`: wallet connection.
 - `src/App.tsx`: deploy UI.
 
-Provider CORS is the gating risk. See `../docs/provider-cors.md`.
+Provider CORS is the gating risk for browser-only deployments. It does not affect CLI deployments.
+
+Track the upstream provider gateway discussion here:
+
+- https://github.com/akash-network/support/issues/642
+
+See also `../docs/provider-cors.md`.

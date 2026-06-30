@@ -1,8 +1,15 @@
 # Akash Deployment Flow
 
-The deploy client should be browser-native and use the Akash SDK directly.
+There are two deployment modes:
 
-## Client steps
+- Command-line deployment, which should be the first reliable path because it is not affected by browser CORS.
+- Browser-only deployment, which should continue to use `akash-deploy-pwa` as the reference Akash SDK implementation.
+
+Browser-only provider gateway support is tracked upstream in:
+
+- https://github.com/akash-network/support/issues/642
+
+## Browser client steps
 
 1. Connect Keplr or Leap.
 2. Select Akash network.
@@ -25,9 +32,20 @@ The browser can create the on-chain deployment and lease, but manifest upload go
 
 The deploy client should not blindly pick the cheapest bid and create a lease. It should first resolve the provider host and warn if browser upload is likely to fail.
 
+This check is only needed for browser deployment. A CLI deploy flow can upload the manifest directly because CORS is not enforced outside browsers.
+
+## CLI deployment path
+
+The command-line path should use the generated SDL and either:
+
+- the official Akash CLI, or
+- a Node CLI using Akash SDK/CosmJS signing from a local key.
+
+This path should be the first working deployment route for UCAN Store on Akash. It can create the deployment, create the lease, send the manifest, and query lease status without browser CORS restrictions.
+
 ## Required SDK-only rule
 
-The client deployment path must use:
+The browser client deployment path must use:
 
 - `@akashnetwork/chain-sdk/web`
 - browser wallet signer

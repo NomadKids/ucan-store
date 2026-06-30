@@ -62,4 +62,10 @@ http://localhost:8080/ipfs/<cid>
 
 See `docs/deployment-flow.md`.
 
-The important constraint is that browser-only manifest upload currently depends on provider gateway CORS support. The deploy client must resolve provider `hostUri` and warn/stop before lease creation if the chosen provider cannot be used from the browser.
+The command-line deploy path is not affected by browser CORS and should be the first reliable path.
+
+The important constraint for browser-only deployment is that manifest upload currently depends on provider gateway CORS support. The deploy client must resolve provider `hostUri` and warn/stop before lease creation if the chosen provider cannot be used from the browser.
+
+Track the upstream provider gateway issue here:
+
+- https://github.com/akash-network/support/issues/642
