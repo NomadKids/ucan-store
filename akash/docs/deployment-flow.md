@@ -43,6 +43,14 @@ The command-line path should use the generated SDL and either:
 
 This path should be the first working deployment route for UCAN Store on Akash. It can create the deployment, create the lease, send the manifest, and query lease status without browser CORS restrictions.
 
+After the provider exposes the service URL, verify the live workload with:
+
+```bash
+bash akash/service/scripts/live-smoke.sh https://<akash-service-host>
+```
+
+The live smoke reuses the same HTTP contract as local Docker smoke tests and verifies `/health`, `/service-manifest.json`, `/api` CORS preflight, `/ipfs/<uiCid>/`, `/`, and UI asset routing. It retries while the service warms up, but it does not create a deployment by itself.
+
 ## Required SDK-only rule
 
 The browser client deployment path must use:

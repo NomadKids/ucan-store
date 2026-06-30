@@ -4,6 +4,9 @@ const baseUrl = normalizeBaseUrl(
   process.env.UCAN_STORE_SMOKE_BASE_URL || process.env.BASE_URL || 'http://127.0.0.1:8080',
 );
 const origin = process.env.UCAN_STORE_SMOKE_ORIGIN || 'http://localhost:5173';
+const expectedServiceDid = process.env.UCAN_STORE_SMOKE_EXPECTED_SERVICE_DID?.trim();
+const expectedServiceOrigin = process.env.UCAN_STORE_SMOKE_EXPECTED_SERVICE_ORIGIN?.trim();
+const expectedPwaOrigin = process.env.UCAN_STORE_SMOKE_EXPECTED_PWA_ORIGIN?.trim();
 
 class AssertionError extends Error {
   constructor(message) {
@@ -34,6 +37,22 @@ await check('service manifest endpoint', async () => {
   assert(typeof manifest.serviceOrigin === 'string' && manifest.serviceOrigin.length > 0, 'missing service origin');
   assert(typeof manifest.ipfsGatewayUrl === 'string' && manifest.ipfsGatewayUrl.length > 0, 'missing IPFS gateway URL');
   assert(isCidLike(manifest.uiCid), `invalid UI CID: ${manifest.uiCid}`);
+
+  if (expectedServiceDid) {
+    assert(manifest.serviceDid === expectedServiceDid, `expected service DID ${expectedServiceDid}, got ${manifest.serviceDid}`);
+  }
+  if (expectedServiceOrigin) {
+    assert(
+      stripTrailingSlash(manifest.serviceOrigin) === stripTrailingSlash(expectedServiceOrigin),
+      `expected service origin ${expectedServiceOrigin}, got ${manifest.serviceOrigin}`,
+    );
+  }
+  if (expectedPwaOrigin) {
+    assert(
+      stripTrailingSlash(manifest.pwaOrigin) === stripTrailingSlash(expectedPwaOrigin),
+      `expected PWA origin ${expectedPwaOrigin}, got ${manifest.pwaOrigin}`,
+    );
+  }
 });
 
 await check('upload API CORS preflight', async () => {
@@ -133,6 +152,10 @@ function handleFailure(error) {
 
 function normalizeBaseUrl(value) {
   return value.endsWith('/') ? value : `${value}/`;
+}
+
+function stripTrailingSlash(value) {
+  return typeof value === 'string' ? value.replace(/\/+$/, '') : value;
 }
 
 function splitHeader(value) {

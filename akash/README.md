@@ -81,6 +81,33 @@ To verify the Akash service identity survives container restarts with the same d
 bash akash/service/scripts/docker-identity-smoke.sh
 ```
 
+## Smoke test a live Akash deployment
+
+After deploying the SDL and obtaining the provider URL for the exposed service, run:
+
+```bash
+bash akash/service/scripts/live-smoke.sh https://<akash-service-host>
+```
+
+or:
+
+```bash
+UCAN_STORE_LIVE_BASE_URL=https://<akash-service-host> \
+  bash akash/service/scripts/live-smoke.sh
+```
+
+Optional assertions:
+
+```bash
+UCAN_STORE_SMOKE_EXPECTED_SERVICE_DID=did:key:z... \
+UCAN_STORE_SMOKE_EXPECTED_PWA_ORIGIN=https://<akash-service-host> \
+UCAN_STORE_SMOKE_EXPECTED_SERVICE_ORIGIN=https://<akash-service-host>/api \
+  bash akash/service/scripts/live-smoke.sh https://<akash-service-host>
+```
+
+The live smoke test does not create an Akash deployment. It verifies a deployment that already exists.
+It retries while the service warms up. Tune retries with `UCAN_STORE_LIVE_ATTEMPTS` and `UCAN_STORE_LIVE_RETRY_DELAY_SECONDS`.
+
 ## Service identity
 
 The workload creates or loads a persistent Ed25519 service identity at:
