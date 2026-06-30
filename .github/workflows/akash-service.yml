@@ -1,0 +1,42 @@
+name: Akash Service Image
+
+on:
+  push:
+    branches: [akash]
+    paths:
+      - 'akash/**'
+      - 'local-storacha-api/**'
+      - 'web/**'
+      - '.github/workflows/akash-service.yml'
+  pull_request:
+    branches: [main, akash]
+    paths:
+      - 'akash/**'
+      - 'local-storacha-api/**'
+      - 'web/**'
+      - '.github/workflows/akash-service.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-service-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Akash service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: akash/service/Dockerfile
+          push: false
+          tags: ucan-store-akash:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
