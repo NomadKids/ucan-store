@@ -37,6 +37,13 @@ jobs:
           context: .
           file: akash/service/Dockerfile
           push: false
+          load: true
           tags: ucan-store-akash:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke test Akash service image
+        env:
+          UCAN_STORE_AKASH_IMAGE: ucan-store-akash:ci
+          UCAN_STORE_SMOKE_MODE: host
+        run: bash akash/service/scripts/docker-smoke.sh

@@ -59,6 +59,22 @@ http://localhost:8080/service-manifest.json
 http://localhost:8080/ipfs/<cid>
 ```
 
+## Smoke test locally
+
+To build the image, start a disposable container, verify the public routes, and clean up:
+
+```bash
+UCAN_STORE_SMOKE_BUILD=1 bash akash/service/scripts/docker-smoke.sh
+```
+
+If your local shell cannot reach Docker's published host port, run the same checks from inside the container:
+
+```bash
+UCAN_STORE_SMOKE_MODE=container bash akash/service/scripts/docker-smoke.sh
+```
+
+The smoke test checks `/health`, `/service-manifest.json`, browser-style CORS preflight for `/api/`, `/ipfs/<uiCid>/`, `/`, and a root-relative UI asset.
+
 ## Akash deploy flow
 
 See `docs/deployment-flow.md`.

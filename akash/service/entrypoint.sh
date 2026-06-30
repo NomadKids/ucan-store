@@ -6,6 +6,7 @@ export UCAN_STORE_DATA_DIR="${UCAN_STORE_DATA_DIR:-/data/ucan-store}"
 export STORACHA_LOCAL_PORT="${STORACHA_LOCAL_PORT:-8787}"
 export UCAN_STORE_PUBLIC_PORT="${UCAN_STORE_PUBLIC_PORT:-8080}"
 export UCAN_STORE_HEALTH_PORT="${UCAN_STORE_HEALTH_PORT:-8790}"
+export KUBO_API_URL="${KUBO_API_URL:-http://127.0.0.1:5001}"
 
 mkdir -p "$IPFS_PATH" "$UCAN_STORE_DATA_DIR" /app/runtime/.well-known
 
@@ -20,14 +21,14 @@ fi
 ipfs daemon --migrate=true > /tmp/kubo.log 2>&1 &
 IPFS_PID="$!"
 
-for _ in $(seq 1 60); do
-  if ipfs id >/dev/null 2>&1; then
+for _ in $(seq 1 "${UCAN_STORE_IPFS_READY_ATTEMPTS:-120}"); do
+  if curl -fsS -X POST "${KUBO_API_URL}/api/v0/id" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-if ! ipfs id >/dev/null 2>&1; then
+if ! curl -fsS -X POST "${KUBO_API_URL}/api/v0/id" >/dev/null 2>&1; then
   echo "Kubo did not become ready" >&2
   tail -n 200 /tmp/kubo.log >&2 || true
   exit 1
@@ -47,6 +48,12 @@ for _ in $(seq 1 60); do
   fi
   sleep 1
 done
+
+if ! curl -fsS "http://127.0.0.1:${UCAN_STORE_HEALTH_PORT}/health" >/dev/null 2>&1; then
+  echo "UCAN Store service did not become healthy" >&2
+  tail -n 200 /tmp/ucan-store-service.log >&2 || true
+  exit 1
+fi
 
 caddy run --config /app/akash/service/Caddyfile --adapter caddyfile &
 CADDY_PID="$!"

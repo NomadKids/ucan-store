@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/server.mjs"
+    "start": "node src/server.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:docker": "bash scripts/docker-smoke.sh"
   }
 }
