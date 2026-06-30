@@ -75,6 +75,28 @@ UCAN_STORE_SMOKE_MODE=container bash akash/service/scripts/docker-smoke.sh
 
 The smoke test checks `/health`, `/service-manifest.json`, browser-style CORS preflight for `/api/`, `/ipfs/<uiCid>/`, `/`, and a root-relative UI asset.
 
+To verify the Akash service identity survives container restarts with the same data volume:
+
+```bash
+bash akash/service/scripts/docker-identity-smoke.sh
+```
+
+## Service identity
+
+The workload creates or loads a persistent Ed25519 service identity at:
+
+```text
+/data/ucan-store/service-identity.json
+```
+
+That file is stored on the Akash persistent data volume. By default the service advertises the signer DID as a stable `did:key`. To reuse the same key with a configured DID alias, set:
+
+```text
+UCAN_STORE_SERVICE_DID=did:web:example.com
+```
+
+The raw key file path can also be overridden with `UCAN_STORE_SERVICE_KEY_FILE`.
+
 ## Akash deploy flow
 
 See `docs/deployment-flow.md`.

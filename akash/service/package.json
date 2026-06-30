@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/server.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "smoke:docker": "bash scripts/docker-smoke.sh"
+    "smoke:docker": "bash scripts/docker-smoke.sh",
+    "smoke:identity": "bash scripts/docker-identity-smoke.sh"
   }
 }

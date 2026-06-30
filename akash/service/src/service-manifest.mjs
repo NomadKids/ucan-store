@@ -50,11 +50,15 @@ export async function writeServiceManifest({ serviceDid, uiCid, runtimeDir = '/a
   return manifest;
 }
 
-export async function writeDidDocument({ serviceDid, runtimeDir = '/app/runtime' }) {
-  if (!serviceDid?.startsWith('did:key:')) {
+export async function writeDidDocument({ serviceDid, didKey = serviceDid, runtimeDir = '/app/runtime' }) {
+  const publicKeyMultibase = didKey?.startsWith('did:key:')
+    ? didKey.slice('did:key:'.length)
+    : null;
+
+  if (!serviceDid || !publicKeyMultibase) {
     return null;
   }
-  const publicKeyMultibase = serviceDid.slice('did:key:'.length);
+
   const didDocument = {
     '@context': ['https://www.w3.org/ns/did/v1'],
     id: serviceDid,

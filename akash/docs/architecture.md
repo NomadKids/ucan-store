@@ -53,7 +53,15 @@ The Akash service writes a runtime manifest that points the UI at the same workl
 
 ## DID strategy
 
-For the first Akash version, prefer a service `did:key` because Akash provider hostnames are discovered after lease creation. A stable `did:web` can be added later when a custom domain is attached.
+For the first Akash version, prefer a service `did:key` because Akash provider hostnames are discovered after lease creation. The service creates or loads the Ed25519 signer from `/data/ucan-store/service-identity.json`, so the advertised DID remains stable across container restarts when the Akash data volume is retained.
+
+A stable `did:web` can be configured later when a custom domain is attached:
+
+```text
+UCAN_STORE_SERVICE_DID=did:web:example.com
+```
+
+The same stored key is reused for the DID alias.
 
 ## Persistence
 
@@ -62,4 +70,4 @@ Akash persistent storage should back:
 - `/data/ipfs`
 - `/data/ucan-store`
 
-The current starter imports the UI into IPFS and starts the upload API. A follow-up should persist the upload service identity and upload/revocation indexes rather than depending on in-memory test context.
+The current starter imports the UI into IPFS and starts the upload API. The service identity is persistent. Upload/revocation indexes still use the in-memory test context and should move to durable storage in a later phase.

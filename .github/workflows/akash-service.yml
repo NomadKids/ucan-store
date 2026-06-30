@@ -47,3 +47,8 @@ jobs:
           UCAN_STORE_AKASH_IMAGE: ucan-store-akash:ci
           UCAN_STORE_SMOKE_MODE: host
         run: bash akash/service/scripts/docker-smoke.sh
+
+      - name: Smoke test persistent service identity
+        env:
+          UCAN_STORE_AKASH_IMAGE: ucan-store-akash:ci
+        run: bash akash/service/scripts/docker-identity-smoke.sh
