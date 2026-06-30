@@ -5,6 +5,7 @@ export IPFS_PATH="${IPFS_PATH:-/data/ipfs}"
 export UCAN_STORE_DATA_DIR="${UCAN_STORE_DATA_DIR:-/data/ucan-store}"
 export STORACHA_LOCAL_PORT="${STORACHA_LOCAL_PORT:-8787}"
 export UCAN_STORE_PUBLIC_PORT="${UCAN_STORE_PUBLIC_PORT:-8080}"
+export UCAN_STORE_HEALTH_PORT="${UCAN_STORE_HEALTH_PORT:-8790}"
 
 mkdir -p "$IPFS_PATH" "$UCAN_STORE_DATA_DIR" /app/runtime/.well-known
 
@@ -41,7 +42,7 @@ node /app/akash/service/src/server.mjs > /tmp/ucan-store-service.log 2>&1 &
 SERVICE_PID="$!"
 
 for _ in $(seq 1 60); do
-  if curl -fsS "http://127.0.0.1:${STORACHA_LOCAL_PORT}/.well-known/did.json" >/dev/null 2>&1; then
+  if curl -fsS "http://127.0.0.1:${UCAN_STORE_HEALTH_PORT}/health" >/dev/null 2>&1; then
     break
   fi
   sleep 1

@@ -54,6 +54,7 @@ Then open:
 
 ```text
 http://localhost:8080/
+http://localhost:8080/health
 http://localhost:8080/service-manifest.json
 http://localhost:8080/ipfs/<cid>
 ```

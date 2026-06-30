@@ -1,11 +1,11 @@
 import {
   applyPublicStorageOrigin,
-  consumeBlobAddSpace,
   createCorsHttp,
   loadUploadApiTestContext,
   refreshExternalServiceProofs,
   startUploadApiServer,
 } from '../../../local-storacha-api/upload-service.mjs';
+import { startHealthServer } from './health.mjs';
 import { importCarToKubo } from './ipfs-gateway.mjs';
 import { publicOrigin, writeDidDocument, writeServiceManifest } from './service-manifest.mjs';
 
@@ -62,3 +62,7 @@ await startUploadApiServer(uploadServiceContext, {
 });
 
 console.log(`Akash UCAN Store upload service listening on 127.0.0.1:${port}`);
+
+startHealthServer({
+  port: Number.parseInt(process.env.UCAN_STORE_HEALTH_PORT ?? '8790', 10),
+});

@@ -12,6 +12,7 @@ Akash workload
     /api/*                    -> UCAN upload service
     /.well-known/ucan-store.json -> runtime manifest
     /service-manifest.json    -> runtime manifest
+    /health                   -> upload service, IPFS, and manifest health
 
   Kubo/IPFS
     API     127.0.0.1:5001
@@ -21,6 +22,9 @@ Akash workload
   UCAN upload service
     HTTP    127.0.0.1:8787
     State   /data/ucan-store
+
+  Health server
+    HTTP    127.0.0.1:8790
 ```
 
 The upload UI continues to be a static Vite app from `web/`. At container startup, the built UI is added to the local IPFS node and served back through the gateway.

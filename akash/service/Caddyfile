@@ -28,6 +28,14 @@
     file_server
   }
 
+  handle /health {
+    reverse_proxy 127.0.0.1:8790
+  }
+
+  handle /healthz {
+    reverse_proxy 127.0.0.1:8790
+  }
+
   handle_path /api/* {
     reverse_proxy 127.0.0.1:8787
   }
