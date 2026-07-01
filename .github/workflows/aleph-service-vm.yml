@@ -81,6 +81,11 @@ on:
         required: false
         default: true
         type: boolean
+      preserve_failed_deployment:
+        description: Preserve a failed INSTANCE for SSH/debugging instead of cleaning it up.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -138,6 +143,7 @@ jobs:
           enable_caddy_proxy: 'true'
           auto_configure: 'true'
           verify_reachability: ${{ inputs.verify_reachability }}
+          preserve_failed_deployment: ${{ inputs.preserve_failed_deployment }}
           ucan_store_bootstrap_mode: ${{ vars.UCAN_STORE_BOOTSTRAP_MODE != '' && vars.UCAN_STORE_BOOTSTRAP_MODE || 'derive-from-aleph-private-key' }}
           ucan_store_service_did: ${{ vars.UCAN_STORE_SERVICE_DID }}
           ucan_store_service_origin: ${{ vars.UCAN_STORE_SERVICE_ORIGIN }}
