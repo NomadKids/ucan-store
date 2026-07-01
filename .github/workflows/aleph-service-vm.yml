@@ -95,6 +95,7 @@ env:
 
 jobs:
   build-rootfs:
+    if: ${{ github.event_name == 'push' || inputs.rootfs_item_hash == '' }}
     uses: NiKrause/relay-button/.github/workflows/aleph-rootfs-build-publish-deploy.yml@codex/ucan-store-caddy-service-origin
     with:
       profile: ucan-store
@@ -109,7 +110,7 @@ jobs:
 
   deploy-vm:
     needs: build-rootfs
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_vm }}
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.deploy_vm && (needs.build-rootfs.result == 'success' || needs.build-rootfs.result == 'skipped') }}
     runs-on: ubuntu-24.04
     steps:
       - name: Deploy ucan-store upload-service VM
@@ -124,7 +125,7 @@ jobs:
           aleph_private_key: ${{ secrets.ALEPH_PRIVATE_KEY }}
           ssh_public_key: ${{ inputs.vm_ssh_public_key != '' && inputs.vm_ssh_public_key || secrets.VM_SSH_PUBLIC_KEY }}
           rootfs_item_hash: ${{ inputs.rootfs_item_hash != '' && inputs.rootfs_item_hash || needs.build-rootfs.outputs.rootfs_item_hash }}
-          rootfs_version: ${{ needs.build-rootfs.outputs.rootfs_version }}
+          rootfs_version: ${{ inputs.rootfs_version != '' && inputs.rootfs_version || needs.build-rootfs.outputs.rootfs_version || 'ucan-store-v0.1.0' }}
           rootfs_size_mib: ${{ inputs.vm_rootfs_size_mib }}
           api_hosts: ${{ inputs.vm_api_hosts != '' && inputs.vm_api_hosts || vars.ALEPH_VM_API_HOSTS }}
           crn_hash: ${{ inputs.vm_crn_hash != '' && inputs.vm_crn_hash || vars.ALEPH_VM_CRN_HASH }}
@@ -153,8 +154,8 @@ jobs:
 
       - name: Summarize upload-service deployment
         env:
-          ROOTFS_ITEM_HASH: ${{ needs.build-rootfs.outputs.rootfs_item_hash }}
-          ROOTFS_VERSION: ${{ needs.build-rootfs.outputs.rootfs_version }}
+          ROOTFS_ITEM_HASH: ${{ inputs.rootfs_item_hash != '' && inputs.rootfs_item_hash || needs.build-rootfs.outputs.rootfs_item_hash }}
+          ROOTFS_VERSION: ${{ inputs.rootfs_version != '' && inputs.rootfs_version || needs.build-rootfs.outputs.rootfs_version || 'ucan-store-v0.1.0' }}
           ROOTFS_MANIFEST_GATEWAY_URL: ${{ needs.build-rootfs.outputs.rootfs_manifest_gateway_url }}
           INSTANCE_ITEM_HASH: ${{ steps.deploy.outputs.instance_item_hash }}
           INSTANCE_STATUS: ${{ steps.deploy.outputs.instance_status }}
