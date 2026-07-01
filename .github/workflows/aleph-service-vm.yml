@@ -76,6 +76,11 @@ on:
         description: Optional admin DID override. Prefer automatic bootstrap derivation or the UCAN_STORE_ADMIN_DID repository variable.
         required: false
         type: string
+      verify_reachability:
+        description: Verify public reachability before completing deploy. Disable for debugging to keep the VM alive.
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   actions: read
@@ -131,7 +136,7 @@ jobs:
           instance_custom_domain: ${{ vars.UCAN_STORE_API_DOMAIN }}
           enable_caddy_proxy: 'true'
           auto_configure: 'true'
-          verify_reachability: 'true'
+          verify_reachability: ${{ inputs.verify_reachability }}
           ucan_store_bootstrap_mode: ${{ vars.UCAN_STORE_BOOTSTRAP_MODE != '' && vars.UCAN_STORE_BOOTSTRAP_MODE || 'derive-from-aleph-private-key' }}
           ucan_store_service_did: ${{ vars.UCAN_STORE_SERVICE_DID }}
           ucan_store_service_origin: ${{ vars.UCAN_STORE_SERVICE_ORIGIN }}
