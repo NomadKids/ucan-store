@@ -90,7 +90,7 @@ env:
 
 jobs:
   build-rootfs:
-    uses: NiKrause/relay-button/.github/workflows/aleph-rootfs-build-publish-deploy.yml@main
+    uses: NiKrause/relay-button/.github/workflows/aleph-rootfs-build-publish-deploy.yml@codex/ucan-store-caddy-service-origin
     with:
       profile: ucan-store
       publish: ${{ github.event_name == 'push' || inputs.publish }}
@@ -98,7 +98,7 @@ jobs:
       rootfs_contract_path: aleph/ucan-store.json
       rootfs_driver: docker
       tooling_repository: NiKrause/relay-button
-      tooling_ref: main
+      tooling_ref: codex/ucan-store-caddy-service-origin
     secrets:
       ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
 
@@ -109,7 +109,7 @@ jobs:
     steps:
       - name: Deploy ucan-store upload-service VM
         id: deploy
-        uses: NiKrause/relay-button/.github/actions/aleph-vm-deploy@main
+        uses: NiKrause/relay-button/.github/actions/aleph-vm-deploy@codex/ucan-store-caddy-service-origin
         env:
           ALEPH_VM_ADMIN_DID: ${{ inputs.admin_did != '' && inputs.admin_did || vars.UCAN_STORE_ADMIN_DID }}
           ALEPH_VM_UCAN_STORE_BOOTSTRAP_JSON: ${{ secrets.UCAN_STORE_BOOTSTRAP_JSON }}
