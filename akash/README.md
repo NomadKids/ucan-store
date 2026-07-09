@@ -124,6 +124,31 @@ UCAN_STORE_SERVICE_DID=did:web:example.com
 
 The raw key file path can also be overridden with `UCAN_STORE_SERVICE_KEY_FILE`.
 
+## Debug SSH
+
+The service image includes optional key-only SSH for debugging Akash workloads. SSH is disabled unless
+`UCAN_STORE_SSH_AUTHORIZED_KEYS` is set. When enabled, the entrypoint writes the value to
+`/root/.ssh/authorized_keys`, disables password and keyboard-interactive authentication, and starts `sshd`.
+
+The browser deploy PWA can generate an SSH-enabled SDL when `VITE_UCAN_STORE_SSH_PUBLIC_KEY` is set in its
+environment. The generated SDL then exposes port `22`; use the provider lease access details to find the external
+host and port for `ssh -p <external-port> root@<host>`.
+
+Treat this as a temporary debug path. Do not put private keys into SDL/env, and close or redeploy without SSH when the
+debug session is finished.
+
+## TLS and provider ingress certificates
+
+The Akash workload listens on HTTP inside the container. For provider-generated ingress hostnames such as
+`*.ingress.<provider-domain>`, TLS is terminated by the provider ingress, so the certificate for that hostname must be
+issued and served by the provider. The container cannot fix a self-signed certificate for a provider-controlled ingress
+hostname.
+
+For a browser-trusted certificate under a domain we control, attach a custom DNS name to the deployment/provider route,
+point DNS at the provider as required by that provider, and set `UCAN_STORE_PUBLIC_ORIGIN=https://<your-domain>` so the
+service manifest advertises the final HTTPS origin. A later SDL template can add the exact custom-host routing once the
+target provider's supported hostname syntax is confirmed.
+
 ## Akash deploy flow
 
 See `docs/deployment-flow.md`.

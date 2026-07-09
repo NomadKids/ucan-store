@@ -10,6 +10,18 @@ export KUBO_API_URL="${KUBO_API_URL:-http://127.0.0.1:5001}"
 
 mkdir -p "$IPFS_PATH" "$UCAN_STORE_DATA_DIR" /app/runtime/.well-known
 
+SSH_PID=""
+if [ -n "${UCAN_STORE_SSH_AUTHORIZED_KEYS:-}" ]; then
+  mkdir -p /root/.ssh /run/sshd
+  printf '%b\n' "$UCAN_STORE_SSH_AUTHORIZED_KEYS" > /root/.ssh/authorized_keys
+  chmod 700 /root/.ssh
+  chmod 600 /root/.ssh/authorized_keys
+  ssh-keygen -A >/dev/null
+  /usr/sbin/sshd -D -e > /tmp/ucan-store-sshd.log 2>&1 &
+  SSH_PID="$!"
+  echo "Debug SSH enabled with key-only root login."
+fi
+
 if [ ! -f "$IPFS_PATH/config" ]; then
   ipfs init --profile=server
   ipfs config Addresses.API /ip4/127.0.0.1/tcp/5001
@@ -58,5 +70,17 @@ fi
 caddy run --config /app/akash/service/Caddyfile --adapter caddyfile &
 CADDY_PID="$!"
 
-trap 'kill "$CADDY_PID" "$SERVICE_PID" "$IPFS_PID" 2>/dev/null || true' TERM INT
-wait -n "$CADDY_PID" "$SERVICE_PID" "$IPFS_PID"
+cleanup() {
+  if [ -n "$SSH_PID" ]; then
+    kill "$CADDY_PID" "$SERVICE_PID" "$IPFS_PID" "$SSH_PID" 2>/dev/null || true
+  else
+    kill "$CADDY_PID" "$SERVICE_PID" "$IPFS_PID" 2>/dev/null || true
+  fi
+}
+
+trap cleanup TERM INT
+if [ -n "$SSH_PID" ]; then
+  wait -n "$CADDY_PID" "$SERVICE_PID" "$IPFS_PID" "$SSH_PID"
+else
+  wait -n "$CADDY_PID" "$SERVICE_PID" "$IPFS_PID"
+fi

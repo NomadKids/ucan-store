@@ -3,7 +3,7 @@ FROM node:22-bookworm
 ARG KUBO_VERSION=0.32.1
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl caddy tini \
+  && apt-get install -y --no-install-recommends ca-certificates curl caddy openssh-server tini \
   && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL "https://dist.ipfs.tech/kubo/v${KUBO_VERSION}/kubo_v${KUBO_VERSION}_linux-amd64.tar.gz" -o /tmp/kubo.tar.gz \
@@ -23,6 +23,10 @@ COPY local-storacha-api ./local-storacha-api
 COPY akash/service ./akash/service
 
 RUN chmod +x /app/akash/service/entrypoint.sh
+RUN mkdir -p /run/sshd \
+  && sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config \
+  && sed -i 's/^#\?KbdInteractiveAuthentication .*/KbdInteractiveAuthentication no/' /etc/ssh/sshd_config \
+  && sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
 
 ENV NODE_ENV=production
 ENV IPFS_PATH=/data/ipfs
@@ -31,6 +35,6 @@ ENV STORACHA_LOCAL_PORT=8787
 ENV UCAN_STORE_PUBLIC_PORT=8080
 
 VOLUME ["/data/ipfs", "/data/ucan-store"]
-EXPOSE 8080
+EXPOSE 8080 22
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/akash/service/entrypoint.sh"]
