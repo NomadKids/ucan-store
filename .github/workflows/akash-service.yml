@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   build-service-image:
@@ -52,3 +53,23 @@ jobs:
         env:
           UCAN_STORE_AKASH_IMAGE: ucan-store-akash:ci
         run: bash akash/service/scripts/docker-identity-smoke.sh
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/akash'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag Akash service image for GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/akash'
+        run: |
+          docker tag ucan-store-akash:ci ghcr.io/nomadkids/ucan-store-akash:latest
+          docker tag ucan-store-akash:ci ghcr.io/nomadkids/ucan-store-akash:sha-${GITHUB_SHA}
+
+      - name: Push Akash service image to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/akash'
+        run: |
+          docker push ghcr.io/nomadkids/ucan-store-akash:latest
+          docker push ghcr.io/nomadkids/ucan-store-akash:sha-${GITHUB_SHA}
