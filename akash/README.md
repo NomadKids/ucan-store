@@ -40,6 +40,25 @@ From the repository root:
 docker build -f akash/service/Dockerfile -t ucan-store-akash:local .
 ```
 
+## Publish image
+
+Pushes to the `akash` branch run the `Akash Service Image` workflow. After the
+Docker smoke tests pass, the workflow publishes the tested image to:
+
+```text
+ghcr.io/nomadkids/ucan-store-akash:latest
+ghcr.io/nomadkids/ucan-store-akash:sha-<commit>
+```
+
+GitHub's default `GITHUB_TOKEN` can publish when the package grants this
+repository write access. If GHCR returns `write_package` permission errors, add
+repository or organization secrets:
+
+```text
+GHCR_USERNAME=<GitHub user or org-capable bot>
+GHCR_TOKEN=<classic PAT with write:packages, read:packages>
+```
+
 ## Run locally
 
 ```bash
