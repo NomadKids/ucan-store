@@ -59,6 +59,9 @@ GHCR_USERNAME=<GitHub user or org-capable bot>
 GHCR_TOKEN=<classic PAT with write:packages, read:packages>
 ```
 
+After adding or changing these secrets, re-run the failed workflow or push a
+change that matches the workflow path filters.
+
 ## Run locally
 
 ```bash
