@@ -85,6 +85,36 @@ await check('upload API CORS preflight', async () => {
 });
 
 if (configureToken) {
+  await check('runtime configure CORS preflight', async () => {
+    const response = await request('/configure', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: origin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+    });
+    assert(response.ok, `expected 2xx configure CORS preflight, got ${response.status}`);
+
+    const allowOrigin = response.headers.get('access-control-allow-origin') || '';
+    const allowMethods = response.headers.get('access-control-allow-methods') || '';
+    const allowHeaders = response.headers.get('access-control-allow-headers') || '';
+
+    assert(!allowOrigin.includes(','), `duplicate access-control-allow-origin: ${allowOrigin}`);
+    assert(
+      splitHeader(allowOrigin).includes('*') || splitHeader(allowOrigin).includes(origin),
+      `unexpected configure access-control-allow-origin: ${allowOrigin}`,
+    );
+    assert(
+      splitHeader(allowMethods).includes('post'),
+      `POST missing from configure access-control-allow-methods: ${allowMethods}`,
+    );
+    assert(
+      splitHeader(allowHeaders).includes('authorization'),
+      `authorization missing from configure access-control-allow-headers: ${allowHeaders}`,
+    );
+  });
+
   await check('runtime public origin configure endpoint', async () => {
     const response = await request('/configure', {
       method: 'POST',

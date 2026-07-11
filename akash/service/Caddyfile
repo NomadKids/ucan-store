@@ -29,15 +29,27 @@
   }
 
   handle /health {
-    reverse_proxy 127.0.0.1:8790
+    reverse_proxy 127.0.0.1:8790 {
+      header_down -Access-Control-Allow-Headers
+      header_down -Access-Control-Allow-Methods
+      header_down -Access-Control-Allow-Origin
+    }
   }
 
   handle /healthz {
-    reverse_proxy 127.0.0.1:8790
+    reverse_proxy 127.0.0.1:8790 {
+      header_down -Access-Control-Allow-Headers
+      header_down -Access-Control-Allow-Methods
+      header_down -Access-Control-Allow-Origin
+    }
   }
 
   handle /configure {
-    reverse_proxy 127.0.0.1:8790
+    reverse_proxy 127.0.0.1:8790 {
+      header_down -Access-Control-Allow-Headers
+      header_down -Access-Control-Allow-Methods
+      header_down -Access-Control-Allow-Origin
+    }
   }
 
   handle_path /api/* {
