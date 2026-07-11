@@ -7,8 +7,29 @@ export STORACHA_LOCAL_PORT="${STORACHA_LOCAL_PORT:-8787}"
 export UCAN_STORE_PUBLIC_PORT="${UCAN_STORE_PUBLIC_PORT:-8080}"
 export UCAN_STORE_HEALTH_PORT="${UCAN_STORE_HEALTH_PORT:-8790}"
 export KUBO_API_URL="${KUBO_API_URL:-http://127.0.0.1:5001}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-/data}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-/data}"
 
-mkdir -p "$IPFS_PATH" "$UCAN_STORE_DATA_DIR" /app/runtime/.well-known
+mkdir -p "$IPFS_PATH" "$UCAN_STORE_DATA_DIR" /app/runtime/.well-known /data/caddy
+
+CUSTOM_CADDY_CONF=/app/runtime/caddy-custom-domain.conf
+if [ -n "${UCAN_STORE_TLS_DOMAIN:-}" ]; then
+  UCAN_STORE_TLS_DOMAIN="${UCAN_STORE_TLS_DOMAIN#http://}"
+  UCAN_STORE_TLS_DOMAIN="${UCAN_STORE_TLS_DOMAIN#https://}"
+  UCAN_STORE_TLS_DOMAIN="${UCAN_STORE_TLS_DOMAIN%%/*}"
+  if [ -n "$UCAN_STORE_TLS_DOMAIN" ]; then
+    cat > "$CUSTOM_CADDY_CONF" <<EOF
+${UCAN_STORE_TLS_DOMAIN} {
+  import ucan_store_routes
+}
+EOF
+    echo "Caddy automatic HTTPS enabled for ${UCAN_STORE_TLS_DOMAIN}."
+  else
+    printf '# no custom TLS domain configured\n' > "$CUSTOM_CADDY_CONF"
+  fi
+else
+  printf '# no custom TLS domain configured\n' > "$CUSTOM_CADDY_CONF"
+fi
 
 SSH_PID=""
 if [ -n "${UCAN_STORE_SSH_AUTHORIZED_KEYS:-}" ]; then

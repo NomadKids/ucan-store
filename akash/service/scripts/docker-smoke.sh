@@ -27,6 +27,10 @@ if [ "$MODE" != "container" ]; then
   docker_args+=(-p "${PORT}:8080")
 fi
 
+if [ -n "${UCAN_STORE_SMOKE_TLS_DOMAIN:-}" ]; then
+  docker_args+=(-e "UCAN_STORE_TLS_DOMAIN=${UCAN_STORE_SMOKE_TLS_DOMAIN}")
+fi
+
 docker run "${docker_args[@]}" "$IMAGE" >/dev/null
 
 cleanup() {

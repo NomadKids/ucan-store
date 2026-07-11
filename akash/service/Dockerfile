@@ -35,6 +35,6 @@ ENV STORACHA_LOCAL_PORT=8787
 ENV UCAN_STORE_PUBLIC_PORT=8080
 
 VOLUME ["/data/ipfs", "/data/ucan-store"]
-EXPOSE 8080 22
+EXPOSE 80 443 8080 22
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/akash/service/entrypoint.sh"]

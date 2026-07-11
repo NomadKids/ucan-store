@@ -1,4 +1,4 @@
-:8080 {
+(ucan_store_routes) {
   encode zstd gzip
 
   header {
@@ -65,3 +65,13 @@
     reverse_proxy 127.0.0.1:8081
   }
 }
+
+:80 {
+  import ucan_store_routes
+}
+
+:8080 {
+  import ucan_store_routes
+}
+
+import /app/runtime/caddy-custom-domain.conf
