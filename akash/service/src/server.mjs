@@ -8,7 +8,13 @@ import {
 import { startHealthServer } from './health.mjs';
 import { importCarToKubo } from './ipfs-gateway.mjs';
 import { installServiceIdentity, loadOrCreateServiceIdentity } from './service-identity.mjs';
-import { publicOrigin, writeDidDocument, writeServiceManifest } from './service-manifest.mjs';
+import {
+  configurePublicOrigin,
+  loadRuntimeConfig,
+  publicOrigin,
+  writeDidDocument,
+  writeServiceManifest,
+} from './service-manifest.mjs';
 
 async function importUploadBytesToIpfs({ bytes, url }) {
   const pathname = url?.split('?')[0] ?? '';
@@ -41,6 +47,7 @@ await installServiceIdentity(uploadServiceContext, serviceIdentity);
 
 const serviceDid = uploadServiceContext.id.did();
 const serviceDidKey = uploadServiceContext.id.toDIDKey();
+await loadRuntimeConfig();
 const origin = publicOrigin();
 const uiCid = process.env.UCAN_STORE_UI_CID ?? null;
 
@@ -72,4 +79,12 @@ console.log(`Akash UCAN Store upload service listening on 127.0.0.1:${port}`);
 
 startHealthServer({
   port: Number.parseInt(process.env.UCAN_STORE_HEALTH_PORT ?? '8790', 10),
+  onConfigurePublicOrigin: async ({ publicOrigin: nextPublicOrigin }) => {
+    const { publicOrigin: configuredOrigin } = await configurePublicOrigin({ publicOrigin: nextPublicOrigin });
+    applyPublicStorageOrigin(uploadServiceContext, `${configuredOrigin}/api`);
+    await refreshExternalServiceProofs(uploadServiceContext);
+    const manifest = await writeServiceManifest({ serviceDid, uiCid });
+    console.log('UCAN Store public origin configured:', configuredOrigin);
+    return { publicOrigin: configuredOrigin, manifest };
+  },
 });

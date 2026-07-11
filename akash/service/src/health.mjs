@@ -6,6 +6,7 @@ const DEFAULT_HEALTH_PORT = 8790;
 const DEFAULT_UPLOAD_SERVICE_URL = 'http://127.0.0.1:8787';
 const DEFAULT_KUBO_API_URL = 'http://127.0.0.1:5001';
 const DEFAULT_RUNTIME_DIR = '/app/runtime';
+const MAX_CONFIGURE_BODY_BYTES = 16 * 1024;
 
 async function checkUploadService() {
   const base = process.env.UCAN_STORE_UPLOAD_SERVICE_URL ?? DEFAULT_UPLOAD_SERVICE_URL;
@@ -75,33 +76,78 @@ export async function readHealth() {
   };
 }
 
-export function startHealthServer({ port = DEFAULT_HEALTH_PORT } = {}) {
+function configureToken() {
+  return process.env.UCAN_STORE_CONFIGURE_TOKEN?.trim() ?? '';
+}
+
+function requestBearerToken(req) {
+  const header = req.headers.authorization ?? '';
+  const value = Array.isArray(header) ? header[0] : header;
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? '';
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.byteLength ?? chunk.length ?? 0;
+    if (size > MAX_CONFIGURE_BODY_BYTES) {
+      throw new Error('request body too large');
+    }
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  return raw ? JSON.parse(raw) : {};
+}
+
+function json(res, status, payload) {
+  res.writeHead(status, {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json',
+  });
+  res.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+export function startHealthServer({ port = DEFAULT_HEALTH_PORT, onConfigurePublicOrigin } = {}) {
   const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       });
       res.end();
       return;
     }
 
+    if (req.method === 'POST' && req.url === '/configure') {
+      const token = configureToken();
+      if (!token || requestBearerToken(req) !== token) {
+        json(res, token ? 401 : 404, { ok: false, error: token ? 'unauthorized' : 'configure disabled' });
+        return;
+      }
+      if (!onConfigurePublicOrigin) {
+        json(res, 503, { ok: false, error: 'configure handler unavailable' });
+        return;
+      }
+      try {
+        const body = await readJsonBody(req);
+        const result = await onConfigurePublicOrigin({ publicOrigin: body?.publicOrigin });
+        json(res, 200, { ok: true, ...result });
+      } catch (error) {
+        json(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+
     if (req.method !== 'GET' || !['/health', '/healthz'].includes(req.url ?? '/')) {
-      res.writeHead(404, {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      });
-      res.end(JSON.stringify({ ok: false, error: 'not found' }));
+      json(res, 404, { ok: false, error: 'not found' });
       return;
     }
 
     const health = await readHealth();
-    res.writeHead(health.ok ? 200 : 503, {
-      'Access-Control-Allow-Origin': '*',
-      'Content-Type': 'application/json',
-    });
-    res.end(`${JSON.stringify(health, null, 2)}\n`);
+    json(res, health.ok ? 200 : 503, health);
   });
 
   server.listen(port, '127.0.0.1', () => {

@@ -7,6 +7,8 @@ const origin = process.env.UCAN_STORE_SMOKE_ORIGIN || 'http://localhost:5173';
 const expectedServiceDid = process.env.UCAN_STORE_SMOKE_EXPECTED_SERVICE_DID?.trim();
 const expectedServiceOrigin = process.env.UCAN_STORE_SMOKE_EXPECTED_SERVICE_ORIGIN?.trim();
 const expectedPwaOrigin = process.env.UCAN_STORE_SMOKE_EXPECTED_PWA_ORIGIN?.trim();
+const configureToken = process.env.UCAN_STORE_SMOKE_CONFIGURE_TOKEN?.trim();
+const configureOrigin = process.env.UCAN_STORE_SMOKE_CONFIGURE_ORIGIN?.trim() || 'https://configured.example.test';
 
 class AssertionError extends Error {
   constructor(message) {
@@ -81,6 +83,30 @@ await check('upload API CORS preflight', async () => {
     `content-type missing from access-control-allow-headers: ${allowHeaders}`,
   );
 });
+
+if (configureToken) {
+  await check('runtime public origin configure endpoint', async () => {
+    const response = await request('/configure', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${configureToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ publicOrigin: configureOrigin }),
+    });
+    assert(response.ok, `POST /configure returned ${response.status}`);
+    const payload = await response.json();
+    assert(payload.ok === true, 'expected configure response ok');
+    assert(stripTrailingSlash(payload.publicOrigin) === stripTrailingSlash(configureOrigin), 'unexpected configured origin');
+
+    const envelope = await getJson('/service-manifest.json');
+    const configuredManifest = envelope.manifest ?? envelope;
+    assert(
+      stripTrailingSlash(configuredManifest.serviceOrigin) === `${stripTrailingSlash(configureOrigin)}/api`,
+      `expected configured service origin ${configureOrigin}/api, got ${configuredManifest.serviceOrigin}`,
+    );
+  });
+}
 
 await check('IPFS gateway serves pinned UI CID', async () => {
   const html = await getText(`/ipfs/${manifest.uiCid}/`);
