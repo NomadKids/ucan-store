@@ -10,16 +10,10 @@ interface SetupProps {
 }
 
 export function Setup({ delegationService, onSetupComplete, onDidCreated }: SetupProps) {
-  const [credentials, setCredentials] = useState({
-    key: '',
-    proof: '',
-    spaceDid: ''
-  });
   const [currentDID, setCurrentDID] = useState<string | null>(null);
   const [keyAlgorithm, setKeyAlgorithm] = useState<'Ed25519' | 'P-256' | null>(null);
   const [isNativeEd25519, setIsNativeEd25519] = useState(false);
   const [isCreatingDID, setIsCreatingDID] = useState(false);
-  const [savedCredentials, setSavedCredentials] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [webauthnSupported, setWebauthnSupported] = useState(false);
 
@@ -27,13 +21,6 @@ export function Setup({ delegationService, onSetupComplete, onDidCreated }: Setu
     // Check WebAuthn support
     setWebauthnSupported(WebAuthnDIDProvider.isSupported());
     
-    // Load existing credentials
-    const existing = delegationService.getStorachaCredentials();
-    if (existing) {
-      setCredentials(existing);
-      setSavedCredentials(true);
-    }
-
     // Load existing DID and key algorithm info
     const did = delegationService.getCurrentDID();
     setCurrentDID(did);
@@ -50,24 +37,6 @@ export function Setup({ delegationService, onSetupComplete, onDidCreated }: Setu
       }
     }
   }, [delegationService]);
-
-  const handleCredentialChange = (field: keyof typeof credentials, value: string) => {
-    setCredentials(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSaveCredentials = () => {
-    if (!credentials.key || !credentials.proof || !credentials.spaceDid) {
-      alert('Please fill in all credential fields');
-      return;
-    }
-
-    delegationService.storeStorachaCredentials(credentials);
-    setSavedCredentials(true);
-    
-    if (currentDID && onSetupComplete) {
-      onSetupComplete();
-    }
-  };
 
   const handleCreateDID = async () => {
     setIsCreatingDID(true);
@@ -95,7 +64,7 @@ export function Setup({ delegationService, onSetupComplete, onDidCreated }: Setu
         onDidCreated();
       }
       
-      if (savedCredentials && onSetupComplete) {
+      if (onSetupComplete) {
         onSetupComplete();
       }
     } catch (error) {
@@ -115,7 +84,7 @@ export function Setup({ delegationService, onSetupComplete, onDidCreated }: Setu
     }
   };
 
-  const isSetupComplete = savedCredentials && currentDID;
+  const isSetupComplete = Boolean(currentDID);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -124,7 +93,7 @@ export function Setup({ delegationService, onSetupComplete, onDidCreated }: Setu
           Browser-Only Setup
         </h2>
         <p className="text-gray-600">
-          Set up WebAuthn DID authentication and Storacha credentials for decentralized file uploads
+          Create a browser DID, then import a UCAN delegation issued by your self-hosted service
         </p>
       </div>
 
@@ -210,80 +179,6 @@ export function Setup({ delegationService, onSetupComplete, onDidCreated }: Setu
             </button>
           </div>
         )}
-        </div>
-      </div>
-
-      {/* Storacha Credentials */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center mb-4">
-          <Key className="h-6 w-6 text-purple-500 mr-3" />
-          <h3 className="text-xl font-semibold text-gray-900">
-            Step 2: Add Storacha Credentials
-          </h3>
-        </div>
-
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Paste your Storacha space credentials. These will be stored securely in your browser.
-          </p>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Private Key
-              </label>
-              <textarea
-                value={credentials.key}
-                onChange={(e) => handleCredentialChange('key', e.target.value)}
-                placeholder="Paste your Storacha private key here..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Space Proof
-              </label>
-              <textarea
-                value={credentials.proof}
-                onChange={(e) => handleCredentialChange('proof', e.target.value)}
-                placeholder="Paste your Storacha space proof here..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Space DID
-              </label>
-              <input
-                type="text"
-                value={credentials.spaceDid}
-                onChange={(e) => handleCredentialChange('spaceDid', e.target.value)}
-                placeholder="did:key:..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
-              />
-            </div>
-
-            <button
-              onClick={handleSaveCredentials}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center"
-            >
-              <Key className="h-4 w-4 mr-2" />
-              Save Credentials
-            </button>
-
-            {savedCredentials && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-2" />
-                  <span className="text-green-800 font-medium">Credentials Saved</span>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

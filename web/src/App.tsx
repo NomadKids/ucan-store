@@ -448,13 +448,13 @@ function App() {
                   </a>
                   {' '}via{' '}
                   <a 
-                    href="https://storacha.network" 
+                    href="https://ucan.xyz"
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="font-semibold text-blue-600 hover:text-blue-800 border-b-2 border-dotted border-blue-400 transition-colors"
-                    title="Storacha network: Uploads use centralized gateways for reliability. Downloads leverage the decentralized IPFS network for resilience and censorship resistance."
+                    title="UCAN: decentralized authorization based on signed capabilities"
                   >
-                    Storacha network
+                    UCAN authorization
                   </a>
                   {' '}with WebAuthn DID + UCAN authorization.
                   Your data stays verifiable, private, and under your control — no servers, no intermediaries.
@@ -477,19 +477,19 @@ function App() {
               {/* Show files from Storacha space */}
               {isLoadingFiles && (
                 <div className="w-full max-w-2xl mt-12 text-center">
-                  <p className="text-gray-600">Loading files from Storacha...</p>
+                  <p className="text-gray-600">Loading files from UCAN Store...</p>
                 </div>
               )}
               
               {(didCreated && delegationService && (delegationService.getStorachaCredentials() || delegationService.getReceivedDelegations().length > 0)) && (
                 <div className="w-full max-w-2xl mt-12">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Files in Storacha Space</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">Files in Your UCAN Store Space</h2>
                     <button
                       onClick={handleReloadFiles}
                       disabled={isLoadingFiles}
                       className="flex items-center gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Reload files from Storacha"
+                      title="Reload files from UCAN Store"
                     >
                       <RefreshCw className={`w-4 h-4 ${isLoadingFiles ? 'animate-spin' : ''}`} />
                       {isLoadingFiles ? 'Loading...' : 'Reload'}

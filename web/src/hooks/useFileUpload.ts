@@ -68,7 +68,7 @@ export function useFileUpload() {
         const delegations = service.getReceivedDelegations();
         console.log('Has credentials:', !!credentials);
         console.log('Received delegations:', delegations.length);
-        throw new Error('Setup incomplete. Please import a UCAN delegation or add Storacha credentials first.');
+        throw new Error('Setup incomplete. Please import a UCAN delegation issued for this browser DID.');
       }
 
       // Initialize WebAuthn DID if needed

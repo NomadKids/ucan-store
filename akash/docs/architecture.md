@@ -65,9 +65,25 @@ The same stored key is reused for the DID alias.
 
 ## Persistence
 
-Akash persistent storage should back:
+The workload stores mutable data under:
 
 - `/data/ipfs`
 - `/data/ucan-store`
 
-The current starter imports the UI into IPFS and starts the upload API. The service identity is persistent. Upload/revocation indexes still use the in-memory test context and should move to durable storage in a later phase.
+The current starter imports the UI into IPFS and starts the upload API. The service identity survives container restarts while the same volume remains attached, but replacement-deployment recovery is not yet guaranteed by the current SDL. Back up or inject identity material before relying on stable delegations across deployment replacement. Upload/revocation indexes still use the in-memory test context and should move to durable storage in a later phase.
+
+## Delegation issuance
+
+The initial self-contained authority model uses the persistent service signer as
+the deployment space authority. A separate bearer token protects the operator
+endpoints:
+
+```text
+GET  /api/admin/delegations/policy
+POST /api/admin/delegations
+```
+
+The service validates the target `did:key`, capability allowlist, and bounded
+expiration, then returns an importable UCAN CAR proof. A later hardening phase
+will place an offline admin DID above the online service signer and inject an
+`admin -> service` root proof at deployment time.

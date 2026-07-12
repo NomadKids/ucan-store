@@ -208,7 +208,7 @@ export function UploadZone({ onFileSelect, isUploading, delegationService, onDid
             <div>
               <h3 className="text-orange-800 font-medium">Upload Credentials Needed</h3>
               <p className="text-orange-700 text-sm">
-                Go to the Delegations tab to add Storacha credentials or import a delegation to enable uploads.
+                Go to the Delegations tab and import a delegation issued for this browser DID.
               </p>
             </div>
           </div>
@@ -292,7 +292,7 @@ export function UploadZone({ onFileSelect, isUploading, delegationService, onDid
                 disabled={isUploading}
                 className="w-full mt-4 px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isUploading ? 'Uploading...' : 'Upload to Storacha'}
+                {isUploading ? 'Uploading...' : 'Upload to UCAN Store'}
               </button>
             </div>
           )}

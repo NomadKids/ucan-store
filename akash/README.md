@@ -2,7 +2,7 @@
 
 This directory contains the Akash-native deployment path for UCAN Store.
 
-The goal is to run the upload service and an IPFS gateway inside one Akash workload, then serve the upload UI from the IPFS node hosted by that workload.
+The goal is to run the UCAN-authorized upload service and an IPFS gateway inside one Akash workload, then serve the upload UI from the same IPFS node.
 
 Out of scope for this branch:
 
@@ -151,8 +151,8 @@ The raw key file path can also be overridden with `UCAN_STORE_SERVICE_KEY_FILE`.
 Set a separate high-entropy `UCAN_STORE_ADMIN_API_TOKEN` in the SDL. When it is
 configured, the service exposes protected delegation issuance at both
 `/admin/delegations` and `/api/admin/delegations` (plus `/policy`). The service
-signer issues authority for the deployment's service/space DID; no Storacha
-account is involved.
+signer issues authority for the deployment's service/space DID; no external
+hosted upload account is involved.
 
 ```bash
 curl -X POST https://<akash-service-host>/api/admin/delegations \

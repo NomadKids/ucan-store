@@ -247,7 +247,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
               Setup Your Ed25519 DID & Upload Access
             </h2>
             <p className="text-gray-600">
-              Import a UCAN delegation token to get upload access, or add Storacha credentials directly
+              Import a UCAN delegation issued by your UCAN Store service to get upload access
             </p>
           </div>
 
@@ -259,7 +259,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
               <Shield className="h-6 w-6 text-blue-600 mr-3" />
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-blue-900 mb-1">Your Ed25519 DID</h3>
-                <p className="text-sm text-blue-700 mb-2">Share this DID to receive UCAN delegations from Storacha CLI</p>
+                <p className="text-sm text-blue-700 mb-2">Share this DID with your UCAN Store operator to receive a delegation</p>
                 <code className="text-sm text-blue-800 break-all bg-white/60 px-3 py-2 rounded border border-blue-200 block" data-testid="did-display">{currentDID}</code>
               </div>
             </div>
@@ -305,16 +305,16 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
         </button>
       </div>
 
-      {/* Secondary Option: Storacha Credentials */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      {/* Legacy direct credentials remain readable for migration but are no longer exposed in the product UI. */}
+      {false && <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <Key className="h-6 w-6 text-purple-500 mr-3" />
             <div>
               <h3 className="text-xl font-semibold text-gray-900">
-                Storacha Credentials (Alternative)
+                Legacy Service Credentials (Migration Only)
               </h3>
-              <p className="text-sm text-gray-600">Advanced: Add credentials directly if you have a Storacha account</p>
+              <p className="text-sm text-gray-600">Deprecated compatibility path; use a service-issued UCAN delegation instead</p>
             </div>
           </div>
           {savedCredentials ? (
@@ -335,7 +335,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
         {savedCredentials ? (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-green-800 text-sm">
-              ✓ Storacha credentials configured. You can now create delegations and upload files.
+              ✓ Legacy credentials configured. You can now migrate to a service-issued delegation.
             </p>
             <button
               onClick={() => {
@@ -350,7 +350,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
         ) : (
           <>
             <p className="text-gray-600 text-sm mb-4">
-              Add Storacha space credentials to enable file uploads and delegation creation. Required if you didn't get a UCAN delegation from another person or device!
+              Legacy compatibility only. New deployments should issue a UCAN delegation directly to this browser DID.
             </p>
             
             {showCredentialsForm && (
@@ -362,7 +362,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
                   <textarea
                     value={credentials.key}
                     onChange={(e) => handleCredentialChange('key', e.target.value)}
-                    placeholder="Paste your Storacha private key here..."
+                    placeholder="Paste the legacy private key here..."
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
                     rows={3}
                   />
@@ -375,7 +375,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
                   <textarea
                     value={credentials.proof}
                     onChange={(e) => handleCredentialChange('proof', e.target.value)}
-                    placeholder="Paste your Storacha space proof here..."
+                    placeholder="Paste the legacy space proof here..."
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
                     rows={3}
                   />
@@ -405,7 +405,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
             )}
           </>
         )}
-      </div>
+      </div>}
 
       {/* Info message for native Ed25519 users */}
       {isNativeEd25519 && (savedCredentials || receivedDelegations.length > 0) && (
@@ -440,7 +440,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
               <h3 className="text-xl font-semibold text-gray-900">Create Delegation for Others</h3>
               <p className="text-sm text-gray-600">
                 {savedCredentials 
-                  ? 'Share upload access with other DIDs using your Storacha credentials'
+                  ? 'Share upload access with other DIDs using your existing authority'
                   : 'Chain your UCAN delegation - share access with other DIDs'}
               </p>
             </div>
@@ -657,12 +657,12 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
                 rows={6}
               />
               <p className="text-xs text-gray-500 mt-2">
-                💡 Get this token from `storacha delegation create YOUR_DID --base64`
+                💡 Generate this token from your UCAN Store deployment's protected delegation endpoint
               </p>
               
               <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="text-xs text-blue-800">
-                  <strong>✓ Auto-detects format:</strong> Supports Storacha CLI (multibase-base64 with 'm' prefix), 
+                  <strong>✓ Auto-detects format:</strong> Supports UCAN CAR multibase-base64 ('m' prefix),
                   base64url ('u' prefix), CAR files, and legacy JSON formats. The detected format will be displayed after import.
                 </div>
               </div>
@@ -715,7 +715,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Delegations Created</h3>
             <p className="text-gray-500 max-w-sm mx-auto">
               Create a delegation to share your upload capabilities with another browser. 
-              This allows others to upload files using your Storacha credentials.
+              This allows others to upload files using authority you deliberately delegate.
             </p>
             <button
               onClick={() => setShowCreateForm(true)}
@@ -938,7 +938,7 @@ export function DelegationManager({ delegationService, onDidCreated, onDelegatio
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Delegations Received</h3>
             <p className="text-gray-500 max-w-sm mx-auto">
               Import a delegation from another browser to gain upload capabilities. 
-              Ask someone with Storacha credentials to create a delegation for your DID.
+              Ask your UCAN Store operator to create a delegation for your DID.
             </p>
             {currentDID && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg max-w-md mx-auto">

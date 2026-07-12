@@ -1,426 +1,155 @@
-# 🔐 UCAN Upload Wall
+# UCAN Store
 
-[![CI](https://github.com/NiKrause/ucan-upload-wall/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NiKrause/ucan-upload-wall/actions/workflows/ci.yml)
+UCAN Store is a self-hosted, capability-authorized file upload service. A browser creates a DID, receives a narrowly scoped UCAN delegation, and uses that proof to upload, list, remove, and retrieve content without sending its private key to the service.
 
-> **⚠️ SECURITY WARNING**: This code has **NOT been security audited** and should **NOT be used in production**. See **[SECURITY.md](./SECURITY.md)** for critical security considerations, attack vectors, and limitations.
+The current deployment target is [Akash Network](https://akash.network/). One workload contains:
 
-A browser-only file upload application powered by **WebAuthn DIDs**, **worker-based Ed25519 keystore**, and **UCAN delegations** on Storacha.
+- the React upload PWA;
+- a UCAN-compatible upload API;
+- a persistent Ed25519 service identity;
+- Kubo/IPFS storage and an HTTP gateway;
+- Caddy for public routing, CORS, and optional custom-domain TLS.
 
-## 📑 Table of Contents
+> Status: experimental. The service still uses an in-memory upload/revocation index and has not received a security audit. Do not treat it as production-grade storage or authorization infrastructure yet. See [SECURITY.md](./SECURITY.md).
 
-- [🌐 Live Demo](#-live-demo)
-- [🎥 Demo Video](#-demo-video)
-- [🏗️ Architecture](#️-architecture)
-- [🚀 Features](#-features)
-- [🔄 How It Works](#-how-it-works)
-- [📦 Setup](#-setup)
-- [Aleph IPFS Deployment](#aleph-ipfs-deployment)
-- [🔐 Security](#-security)
-- [🛠️ Technical Details](#️-technical-details)
-- [📝 Notes](#-notes)
-- [🔗 Resources](#-resources)
-- [📚 Project Documentation](#-project-documentation)
-- [📄 License](#-license)
+## How it works
 
-## 🌐 Live Demo
+```text
+Akash operator deploys UCAN Store
+  -> workload creates/loads a service DID
+  -> operator keeps a separate delegation admin token
 
-**[Try it now →](https://dweb.link/ipfs/bafybeic6mefgeb7yrzdzytxlxxg5vngzosv7qxx4svogtmevon2rif2izm)**
-
-⚠️ **Demo is for testing only** - do not use with valuable data (see security warnings above)
-
-**To mitigate the above stated security risks**, please use the browser app only in:
-
-- Browsers **without any installed browser extensions** (e.g., Chrome extensions), or
-- **Mobile phones** where the attack surface is much smaller
-
-## 🎥 Demo Video
-
-[![UCAN Upload Wall Demo](https://img.youtube.com/vi/3ZqkgYMS1MM/hqdefault.jpg)](https://www.youtube.com/watch?v=3ZqkgYMS1MM)
-
-*Click the image above to watch the demo video on YouTube*
-
-## 🏗️ Architecture
-
-> **📊 For detailed visual diagrams and flow charts, see [ARCHITECTURE_FLOW.md](./docs/ARCHITECTURE_FLOW.md)**  
-> Includes sequence diagrams for WebAuthn, Ed25519 keystore, delegation flows, and complete end-to-end scenarios with Mermaid visualizations.
-
-### **WebAuthn DID (P-256)**
-- Hardware-secured identity using device biometrics (Face ID, Touch ID, Windows Hello)
-- P-256 elliptic curve cryptography (WebAuthn also supports Ed25519)
-- DID format: `did:key:zDna...` (P-256 public key)
-- Used for: Initial authentication, PRF seed derivation
-- **Note**: Cannot sign UCANs due to WebAuthn signature format (see [SECURITY.md](./SECURITY.md))
-
-### **Worker-Based Ed25519 Keystore**
-- Ed25519 keypair generated in a dedicated web worker
-- AES-GCM encryption key derived from WebAuthn PRF seed (deterministic)
-- Private key never leaves the worker (see Security warnings)
-- DID format: `did:key:z6Mk...` (Ed25519 public key)
-- Used for: UCAN signing, Storacha client principal
-
-**Worker Functions:**
-- `init(prfSeed)` - Initialize AES key from WebAuthn PRF seed
-- `generateKeypair()` - Generate Ed25519 keypair and archive
-- `encrypt(plaintext)` - Encrypt data with AES-GCM
-- `decrypt(ciphertext, iv)` - Decrypt data with AES-GCM
-- `sign(data)` - Sign data with Ed25519 private key
-- `verify(data, signature)` - Verify Ed25519 signature
-
-### **Key Flow**
-```
-WebAuthn Credential (P-256)
-    ↓
-rawCredentialId (PRF seed)
-    ↓
-Worker: HKDF-SHA-256 → AES-GCM key
-    ↓
-Worker: Generate Ed25519 keypair
-    ↓
-Worker: Create Ed25519Signer archive
-    ↓
-Encrypt archive with AES key → localStorage
-    ↓
-Reconstruct Ed25519Signer for Storacha client
+Browser creates a passkey-backed DID
+  -> operator issues a limited UCAN delegation to that DID
+  -> browser imports the delegation proof
+  -> browser signs upload/list/remove invocations
+  -> service verifies the DID, capability, resource, proof chain, and expiry
+  -> uploaded CAR/blob data is imported into local Kubo
 ```
 
-## 🚀 Features
+The runtime service manifest is available at:
 
-### **1. Generate Ed25519 DID**
-- Automatically generated on first authentication
-- Derived from WebAuthn credential (deterministic per credential)
-- Stored encrypted in localStorage
-- Format: `did:key:z6Mk...`
+```text
+/.well-known/ucan-store.json
+/service-manifest.json
+```
 
-### **2. Create Delegation (Storacha CLI)**
+It publishes the service DID, upload API origin, revocation/receipt endpoints, IPFS gateway, UI CID, and supported capabilities. This lets the same static PWA discover the service selected at deployment time.
+
+## Repository layout
+
+```text
+akash/                 Akash workload, SDL, routing, smoke tests, and docs
+web/                   Browser PWA and UCAN delegation client
+local-storacha-api/    Legacy directory name for the embedded upload-api adapter
+aleph/                 Earlier Aleph deployment path retained for reference
+docs/                  Historical architecture and security documents
+```
+
+The `local-storacha-api` name and `@storacha/*` dependencies remain temporarily because the self-hosted adapter is built on that open-source upload-service/UCAN implementation. They do not mean that uploads are sent to a hosted Storacha service.
+
+## Deploy on Akash
+
+The recommended operator experience is the companion [Akash Deploy PWA](https://github.com/NiKrause/akash-deploy-pwa). It connects to Keplr or Leap, creates the Akash deployment and lease, uploads the manifest, discovers provider access details, and renders the UCAN Store SDL.
+
+The template configures two distinct high-entropy secrets:
+
+- `UCAN_STORE_CONFIGURE_TOKEN`: permits changing the runtime public origin through `POST /configure`.
+- `UCAN_STORE_ADMIN_API_TOKEN`: permits issuing UCAN delegations through the protected admin API.
+
+Never reuse or publish either token. The delegation admin token is more powerful because it can mint upload authority.
+
+For the container, SDL, custom-domain, SSH, and smoke-test details, see [akash/README.md](./akash/README.md).
+
+## Give a browser upload authority
+
+1. Open the deployed UCAN Store PWA.
+2. Create the browser DID in the Delegations tab.
+3. Copy the `did:key:z...` value.
+4. In Akash Deploy PWA, replace `REPLACE-WITH-BROWSER-DID` in the editable curl helper.
+5. Run the command and copy `delegation.proof` from the JSON response.
+6. Import that proof in UCAN Store.
+
+Equivalent API request:
+
 ```bash
-# On Storacha CLI, create delegation for your Ed25519 DID
-storacha delegation create did:key:z6Mkwa35STKQF1i5eoDYtQ4W1y6y6NbE9RXe3QiJt7aSK6uS --base64
+curl -X POST 'https://YOUR-UCAN-STORE-HOST/api/admin/delegations' \
+  -H 'Authorization: Bearer YOUR-DELEGATION-ADMIN-TOKEN' \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "targetDid": "did:key:z6Mk...",
+    "capabilities": ["space/blob/add", "upload/add", "upload/list"],
+    "expirationSeconds": 86400
+  }'
 ```
 
-This outputs a base64-encoded UCAN delegation proof.
+The response contains a `ucan-car-multibase-base64` proof beginning with `m`. The browser verifies that the proof audience exactly matches its current DID before storing it.
 
-### **3. Import Delegation**
-- Paste the delegation proof from Storacha CLI
-- App verifies the delegation is for your current Ed25519 DID
-- **Format auto-detection**: Supports multiple formats including:
-  - `multibase-base64` (Storacha CLI format with 'm' prefix)
-  - `multibase-base64url` (with 'u' prefix)
-  - CAR format, JSON format, and other legacy formats
-- Delegation stored in localStorage with detected format displayed
-- Capabilities: `upload/*`, `store/*`, `blob/*`, `space/*`, etc.
+## Public routes
 
-### **4. Upload File**
-- Drag & drop or click to select
-- File uploaded to Storacha using delegation
-- Returns CID (Content Identifier)
-- Files stored on Filecoin network
+| Route | Purpose |
+| --- | --- |
+| `/` | PWA served from the pinned UI CID |
+| `/api/*` | UCAN upload API |
+| `/api/admin/delegations/policy` | Protected issuance policy |
+| `/api/admin/delegations` | Protected child-delegation issuance |
+| `/ipfs/<cid>` | Local Kubo HTTP gateway |
+| `/health` | Upload service, Kubo, and manifest health |
+| `/configure` | Protected runtime-origin configuration |
+| `/.well-known/did.json` | Service DID document |
+| `/.well-known/ucan-store.json` | Runtime discovery manifest |
 
-### **5. List Files**
-- Lists all uploads in your Storacha space
-- Uses delegation with `upload/list` capability
-- Shows CID, upload date, shards
+## Local development
 
-### **5.5. Download via Helia (IPFS)**
-- Spins up a browser Helia node to fetch files directly over IPFS
-- Falls back to public gateways if Helia cannot fetch
-- Thumbnails use the same Helia-first blob pipeline
+Build and smoke-test the complete workload:
 
-### **6. Create Delegation**
-- Create new delegations from your current Ed25519 DID
-- Delegate to another DID with specific capabilities
-- **Delegation chaining supported** - create sub-delegations from received delegations
-- Expiration support (1 hour to 10 years, or never)
-- Works with both Storacha credentials and received delegations
-
-### **7. Revoke Delegations** 🆕
-- **Revoke delegations you created** to immediately block access
-- Integrated with Storacha's revocation registry
-- **Real-time validation** - all operations check revocation status before executing
-- **Visual indicators** - Clear UI badges showing Active/Revoked/Expired status
-- **Automatic caching** - Revocation checks are cached for 5 minutes to minimize API calls
-- **Security first** - Essential for handling lost devices, mistakes, or security incidents
-- **Permanent action** - Revocations cannot be undone (by design)
-- Works with both issuer and audience of delegations
-
-**How it works:**
-1. Click "Revoke" button on any delegation you created
-2. Confirm the action (cannot be undone)
-3. Revocation request sent to Storacha service
-4. Delegation marked as revoked in local storage
-5. Recipient can no longer use the delegation for uploads
-6. Revocation status synced via `https://up.storacha.network/revocations/`
-
-## 🔄 How It Works
-
-### Serverless Architecture
-- **100% browser-based** - No backend server required
-- **Client-side only** - All cryptography happens in browser/web worker
-- **Deployed to IPFS** - Static files served from decentralized storage
-- **WebAuthn + UCAN** - Hardware-backed identity + decentralized authorization
-
-### Browser A (Delegation Creator)
-1. **Authenticate** with WebAuthn → Generate Ed25519 DID
-2. **Add Storacha credentials** (key + proof) OR import delegation from CLI/another browser
-3. **Create delegation** for Browser B's DID with selected capabilities
-4. **Share delegation proof** (base64 string) with Browser B
-
-### Browser B (Delegation Receiver)  
-1. **Authenticate** with WebAuthn → Generate own Ed25519 DID
-2. **Import delegation proof** from Browser A
-3. **Upload/list/delete files** using delegated permissions
-4. **No Storacha credentials needed** - operates entirely through delegated authority!
-
-### Multi-Browser Delegation Chain
-```
-Storacha Console → Browser A → Browser B → Browser C
-                    (creates   (re-delegates
-                    delegation) to Browser C)
+```bash
+UCAN_STORE_SMOKE_BUILD=1 bash akash/service/scripts/docker-smoke.sh
 ```
 
-Each browser can create sub-delegations from received delegations, enabling flexible permission management across devices and users.
+Run the web application separately:
 
-## 📦 Setup
-
-### Prerequisites
-- Modern browser with WebAuthn support
-- Device with biometric authentication
-- Storacha account and credentials (for creating delegations)
-
-### Installation
 ```bash
 cd web
-npm install
+npm ci
 npm run dev
 ```
 
-### Local In-Memory Storacha (3 terminals)
-Use this when you want the local upload service + Helia preview flow. The
-`storacha:memory` output includes a Helia multiaddr you should pass to the app.
+Useful checks:
 
-**Terminal 1: local upload API + Helia**
-```bash
-npm run storacha:memory
-```
-
-**Terminal 2: web app pointed at local API**
-```bash
-VITE_UPLOAD_SERVICE_URL=http://127.0.0.1:8787 \
-VITE_UPLOAD_SERVICE_DID=did:web:test.up.storacha.network \
-VITE_REVOCATION_URL=http://127.0.0.1:8787 \
-VITE_HELIA_ADDRS=/ip4/127.0.0.1/tcp/PORT/ws/p2p/PEER_ID \
-npm run dev:local
-```
-
-**Terminal 3: create a delegation (CLI or helper script)**
 ```bash
 cd web
-node scripts/test-local-delegation.js
+npm run build
+npm test -- --run
+
+cd ..
+bash akash/service/scripts/docker-identity-smoke.sh
+bash akash/service/scripts/live-smoke.sh https://YOUR-DEPLOYMENT
 ```
 
-Then paste the delegation proof into the app.
-For more detail, see `docs/local-dev.md` (setup) and `docs/LOCAL_STORACHA_STATUS.md`
-(status, Helia notes, troubleshooting).
+## Current limitations and roadmap
 
-## Aleph IPFS Deployment
+- Upload metadata and revocations still use an in-memory test context.
+- Akash volume persistence and identity recovery need a documented, tested production design.
+- The online service signer is the initial space authority; a later hardening milestone adds an offline admin root delegation.
+- The old direct-credential UI has been retired in favor of service-issued browser delegations.
+- Some internal source names and compatibility dependencies still reference the predecessor implementation.
+- Custom-domain TLS depends on the provider exposing the required ports correctly.
 
-The `Aleph PWA Deploy` workflow builds the static Vite app in `web/`, publishes
-`web/dist` to Aleph IPFS, and can link a production domain for the PWA.
+The active Akash roadmap is tracked in [issue #8](https://github.com/NomadKids/ucan-store/issues/8). The older [PLANNING.md](./PLANNING.md) and several files under `docs/` are historical design records, not the current deployment guide.
 
-Required repository secret:
+## Acknowledgements
 
-- `ALEPH_PRIVATE_KEY`: Ethereum private key used by the Aleph hosting action.
+UCAN Store builds on the protocol and open-source engineering developed by the [Storacha](https://storacha.network/) and web3.storage communities, especially [ucanto](https://github.com/storacha/ucanto), the upload client/capability packages, and the upload-service architecture. Storacha's hosted upload-service lifecycle changed, so this project now runs that lineage as a self-hosted service rather than depending on the hosted network. We retain this acknowledgement and the relevant package history while presenting the current product as UCAN Store.
 
-Recommended repository variables:
+Additional standards:
 
-- `UCAN_STORE_PWA_DOMAIN`: custom frontend domain to attach to the Aleph site,
-  for example `upload.example.com`.
-- `UCAN_STORE_WEBSITE_NAME`: Aleph website identifier. Defaults to
-  `ucan-store`.
-- `UCAN_STORE_SERVICE_ORIGIN`: public origin of the paired upload-service VM,
-  for example `https://upload-api.example.com`.
-- `UCAN_STORE_SERVICE_DID`: DID of the paired upload-service VM.
-- `UCAN_STORE_SERVICE_MANIFEST_URL`: optional explicit manifest URL. Use this
-  when the PWA should read the manifest directly from the service domain.
-- `UCAN_STORE_REVOCATION_URL`, `UCAN_STORE_REVOCATION_DID`, and
-  `UCAN_STORE_RECEIPTS_URL`: optional runtime endpoints exposed to the app.
-- `UCAN_STORE_SPACE_DID`: optional space/resource DID written into the static
-  service manifest.
-- `UCAN_STORE_ALLOWED_CAPABILITIES`: optional comma-separated capability list
-  written into the static service manifest.
-- `ALEPH_OWNER_ADDRESS`: optional Aleph owner address when deploying on behalf
-  of another account. Leave this disabled when it is the same address as
-  `ALEPH_PRIVATE_KEY`; set `ALEPH_USE_OWNER_ADDRESS=true` only for delegated
-  owner billing.
-- `ALEPH_USE_OWNER_ADDRESS`: set to `true` to pass `ALEPH_OWNER_ADDRESS` into
-  the Aleph hosting action.
-- `ALEPH_RETENTION_DAYS`: optional cleanup window for older Aleph website
-  versions.
+- [UCAN](https://ucan.xyz/)
+- [DID Key Method](https://w3c-ccg.github.io/did-method-key/)
+- [WebAuthn](https://www.w3.org/TR/webauthn-3/)
+- [IPFS](https://ipfs.tech/)
+- [Akash Network](https://akash.network/)
 
-When `UCAN_STORE_SERVICE_ORIGIN` and `UCAN_STORE_SERVICE_DID` are configured,
-the workflow writes both `/.well-known/ucan-store.json` and
-`/service-manifest.json` into the static bundle. The PWA can then resolve the
-paired service from its own custom domain. If those variables are omitted, the
-app still supports runtime discovery through `UCAN_STORE_SERVICE_MANIFEST_URL`
-or the existing `VITE_*` fallback values.
+## License
 
-## Aleph Upload-Service VM
-
-The `Aleph Upload Service VM` workflow builds the `ucan-store` rootfs with the
-shared `NiKrause/relay-button` tooling. On `main` pushes it publishes a fresh
-rootfs when `local-storacha-api/`, the Aleph contract, or package lockfiles
-change. Manual runs can also deploy a VM from the published image.
-
-Required repository secrets for VM deploys:
-
-- `ALEPH_PRIVATE_KEY`: Ethereum private key used to publish the rootfs and
-  create the Aleph VM. The default workflow also derives the UCAN admin Ed25519
-  key and root delegation proof from this key with relay-button's
-  domain-separated `derive-from-aleph-private-key` mode.
-- `VM_SSH_PUBLIC_KEY`: SSH public key installed into the VM unless the manual
-  workflow input overrides it.
-
-Optional repository secrets:
-
-- `UCAN_STORE_BOOTSTRAP_JSON`: canonical bootstrap package containing the admin
-  DID, service DID/origin binding, space DID, allowed capabilities, and root
-  delegation proof. When set, this explicit package overrides automatic
-  derivation.
-
-Recommended repository variables:
-
-- `UCAN_STORE_BOOTSTRAP_MODE`: bootstrap mode for VM deploys. Defaults to
-  `derive-from-aleph-private-key`.
-- `UCAN_STORE_SERVICE_DID`: public service DID, for example
-  `did:web:upload-api.example.com`.
-- `UCAN_STORE_SERVICE_ORIGIN`: public upload-service VM origin, for example
-  `https://upload-api.example.com`.
-- `UCAN_STORE_PWA_ORIGIN`: public PWA origin used in the derived bootstrap
-  package, for example `https://ucan.nicokrause.com`.
-- `UCAN_STORE_ALLOWED_CAPABILITIES`: comma-separated capability list included in
-  the generated root delegation.
-- `UCAN_STORE_ADMIN_DID`: optional manual admin DID hint. Automatic derivation
-  emits the actual admin DID in the workflow summary.
-- `ALEPH_VM_CRN_HASH`: optional target CRN hash for deployments.
-
-The base VM profile exposes only `22/tcp`, temporary setup `80/tcp`, and public
-HTTPS `443/tcp`. Public Helia/IPFS gateway exposure remains a later milestone.
-
-### First-Time Setup
-
-**Option 1: Using Storacha CLI (Recommended for first browser)**
-1. **Authenticate** - Click "Authenticate with Biometric"
-2. **Get Your DID** - Copy your Ed25519 DID from the UI
-3. **Create Delegation** - Use Storacha CLI:
-   ```bash
-   storacha delegation create <your-did> --base64
-   ```
-4. **Import Delegation** - Paste the delegation proof
-5. **Upload Files** - Start uploading!
-
-**Option 2: Browser-to-Browser Delegation (No Storacha account needed)**
-1. **Browser A**: Add Storacha credentials or import CLI delegation
-2. **Browser B**: Authenticate → Copy your Ed25519 DID
-3. **Browser A**: Create delegation for Browser B's DID
-4. **Browser A**: Share the delegation proof (copy/paste, QR code, etc.)
-5. **Browser B**: Import delegation proof
-6. **Browser B**: Upload files without Storacha account!
-
-**Option 3: Direct Storacha Credentials (Advanced)**
-1. **Authenticate** - Click "Authenticate with Biometric"
-2. **Add Credentials** - Enter your Storacha private key, space proof, and space DID
-3. **Upload Files** - Start uploading and creating delegations!
-
-## 🔐 Security
-
-> **⚠️ READ FIRST**: Please review **[SECURITY.md](./SECURITY.md)** for critical security warnings and attack vectors.
-
-### 🚀 Future: Multi-Device DKG
-
-A **planned version** will use **Distributed Key Generation (DKG)** across multiple devices (browser + mobile), where:
-- No single device holds the complete private key
-- Signing requires confirmation from multiple devices (e.g., scan QR code on mobile)
-- Devices communicate via js-libp2p
-- Hardware-backed security on all devices
-- Enables secure credential storage on Storacha
-
-See **[PLANNING.md](./PLANNING.md)** for the complete roadmap and technical details.
-
-## 🛠️ Technical Details
-
-### **Worker Keystore**
-- Location: `web/src/workers/ed25519-keystore.worker.ts`
-- Generates Ed25519 keypair using Web Crypto API
-- Creates `@ucanto/principal/ed25519` compatible archive
-- AES key derived deterministically from PRF seed
-
-### **Secure Ed25519 DID**
-- Location: `web/src/lib/secure-ed25519-did.ts`
-- Wraps worker communication
-- Provides `encryptArchive()` / `decryptArchive()` helpers
-- Manages DID generation and storage
-
-### **UCAN Delegation Service**
-- Location: `web/src/lib/ucan-delegation.ts`
-- Manages Storacha client initialization
-- Handles delegation import/export
-- Upload/list/delete operations
-
-## 📝 Notes
-
-- **Deterministic DID**: Same WebAuthn credential always produces same Ed25519 DID
-- **Archive Encryption**: Archive encrypted with AES-GCM, decrypted only in worker
-- **Delegation Mismatch**: If DID changes, delegation must be recreated
-- **Worker Persistence**: Worker state lost on page reload; archive restored from localStorage
-- **Delegation Chaining**: Can create sub-delegations from received delegations, enabling permission cascading across browsers/devices
-- **Format Auto-Detection**: Uses ucanto `extract()` first (for app-created delegations), falls back to Storacha `Proof.parse()` (for CLI delegations), maintaining backward compatibility
-- **Base64 Encoding Compatibility**: Handles both standard base64 (Storacha CLI) and base64url formats by detecting the multibase prefix ('m' or 'u') and normalizing accordingly. See [issue #590](https://github.com/storacha/upload-service/issues/590) for background on the encoding challenge.
-
-## 🔗 Resources
-
-### Standards & Specifications
-- **[WebAuthn Level 3 (W3C)](https://www.w3.org/TR/webauthn-3/)** - Web Authentication API specification
-  - [§6.5.5 Authentication Assertion](https://www.w3.org/TR/webauthn-3/#sctn-op-get-assertion) - Signature format details
-  - [§6.5 CollectedClientData](https://www.w3.org/TR/webauthn-3/#dictdef-collectedclientdata) - Origin-bound data structure
-- **[UCAN Specification](https://github.com/ucan-wg/spec)** - User Controlled Authorization Networks
-- **[DID Key Method](https://w3c-ccg.github.io/did-method-key/)** - Decentralized Identifiers using public keys
-
-### Documentation & Guides
-- [Storacha Documentation](https://docs.storacha.network/) - Decentralized storage platform
-- [WebAuthn Guide](https://webauthn.guide/) - Interactive WebAuthn tutorial
-
-### Why WebAuthn Can't Sign UCANs
-
-WebAuthn (both P-256 and Ed25519) cannot produce raw signatures suitable for UCAN tokens due to the signature format specification. WebAuthn signs `authenticatorData || hash(clientDataJSON)` which includes origin, ceremony type, and other metadata - making signatures non-portable and incompatible with UCAN's requirement for raw cryptographic signatures.
-
-See **[SECURITY.md § WebAuthn UCAN Signing](./SECURITY.md#-webauthn-ucan-signing-why-its-not-possible)** for detailed technical explanation.
-
-## 📚 Project Documentation
-
-### Core Documents
-- **[SECURITY.md](./SECURITY.md)** - Security warnings, attack vectors, and limitations
-- **[PLANNING.md](./PLANNING.md)** - Future roadmap and planned features (5 phases)
-- **[LICENSE](./LICENSE)** - MIT License
-
-### Architecture & Flow Diagrams
-- **[ARCHITECTURE_FLOW.md](./docs/ARCHITECTURE_FLOW.md)** - 🆕 Complete visual architecture with detailed Mermaid diagrams:
-  - High-level system architecture
-  - WebAuthn PRF authentication flow
-  - Ed25519 keystore worker operations
-  - DID generation (P-256 & Ed25519)
-  - UCAN delegation creation & import
-  - File upload with delegations
-  - Revocation system
-  - End-to-end multi-browser flow
-
-### Technical Documentation (docs/)
-- **[WEBAUTHN_PRF_IMPLEMENTATION.md](./docs/WEBAUTHN_PRF_IMPLEMENTATION.md)** - WebAuthn PRF extension implementation details
-- **[KEYSTORE_ARCHITECTURE.md](./docs/KEYSTORE_ARCHITECTURE.md)** - Web worker-based Ed25519 keystore architecture
-- **[SECURE_CREDENTIAL_STORAGE.md](./docs/SECURE_CREDENTIAL_STORAGE.md)** - largeBlob + Storacha architecture (Phase 1.5)
-- **[REVOCATION_IMPLEMENTATION.md](./docs/REVOCATION_IMPLEMENTATION.md)** - UCAN revocation technical details (Phase 0)
-- **[REVOCATION_QUICKSTART.md](./docs/REVOCATION_QUICKSTART.md)** - Revocation testing guide
-- **[UX_IMPROVEMENT_AUTO_NAVIGATION.md](./docs/UX_IMPROVEMENT_AUTO_NAVIGATION.md)** - Auto-navigation UX improvement
-- **[BUGFIX_DID_WEB_REVOCATION.md](./docs/BUGFIX_DID_WEB_REVOCATION.md)** - did:web support bug fixes
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+See [LICENSE](./LICENSE).

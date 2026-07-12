@@ -14,18 +14,18 @@ export function Header({ delegationService }: HeaderProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              🔐 UCAN Upload Wall <span className="text-lg text-blue-600">(Browser-Only)</span>
+              🔐 UCAN Store <span className="text-lg text-blue-600">(Self-Hosted)</span>
             </h1>
             <p className="text-sm text-gray-600">
               WebAuthn DID +{' '}
               <a 
-                href="https://storacha.network" 
+                href="https://ucan.xyz"
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="font-medium text-blue-600 hover:text-blue-800 border-b border-dotted border-blue-400 transition-colors"
-                title="Storacha network: Uploads use centralized gateways for reliability. Downloads leverage the decentralized IPFS network for resilience and censorship resistance."
+                title="UCAN: decentralized authorization based on signed capabilities"
               >
-                Storacha Network
+                UCAN
               </a>
               {' '}• UCAN Delegation • No Servers
             </p>
