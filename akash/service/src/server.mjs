@@ -8,6 +8,7 @@ import {
 import { startHealthServer } from './health.mjs';
 import { importCarToKubo } from './ipfs-gateway.mjs';
 import { installServiceIdentity, loadOrCreateServiceIdentity } from './service-identity.mjs';
+import { delegationPolicy, issueDelegation } from './admin-delegations.mjs';
 import {
   configurePublicOrigin,
   loadRuntimeConfig,
@@ -87,4 +88,12 @@ startHealthServer({
     console.log('UCAN Store public origin configured:', configuredOrigin);
     return { publicOrigin: configuredOrigin, manifest };
   },
+  onReadDelegationPolicy: async () => delegationPolicy({ serviceDid, spaceDid: serviceDid }),
+  onIssueDelegation: async (request) => issueDelegation({
+    signer: serviceIdentity.id,
+    targetDid: request?.targetDid,
+    capabilities: request?.capabilities,
+    expirationSeconds: request?.expirationSeconds,
+    spaceDid: serviceDid,
+  }),
 });

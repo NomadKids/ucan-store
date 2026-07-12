@@ -9,6 +9,7 @@ const expectedServiceOrigin = process.env.UCAN_STORE_SMOKE_EXPECTED_SERVICE_ORIG
 const expectedPwaOrigin = process.env.UCAN_STORE_SMOKE_EXPECTED_PWA_ORIGIN?.trim();
 const configureToken = process.env.UCAN_STORE_SMOKE_CONFIGURE_TOKEN?.trim();
 const configureOrigin = process.env.UCAN_STORE_SMOKE_CONFIGURE_ORIGIN?.trim() || 'https://configured.example.test';
+const adminToken = process.env.UCAN_STORE_SMOKE_ADMIN_TOKEN?.trim();
 
 class AssertionError extends Error {
   constructor(message) {
@@ -135,6 +136,43 @@ if (configureToken) {
       stripTrailingSlash(configuredManifest.serviceOrigin) === `${stripTrailingSlash(configureOrigin)}/api`,
       `expected configured service origin ${configureOrigin}/api, got ${configuredManifest.serviceOrigin}`,
     );
+  });
+}
+
+if (adminToken) {
+  await check('delegation admin policy endpoint', async () => {
+    const unauthorized = await request('/api/admin/delegations/policy');
+    assert(unauthorized.status === 401, `expected policy without token to return 401, got ${unauthorized.status}`);
+
+    const response = await request('/api/admin/delegations/policy', {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert(response.ok, `delegation policy returned ${response.status}`);
+    const payload = await response.json();
+    assert(payload.status === 'ok', 'expected delegation policy status ok');
+    assert(payload.policy?.issuerDid === manifest.serviceDid, 'delegation policy issuer does not match service DID');
+    assert(payload.policy?.allowedCapabilities?.includes('upload/add'), 'delegation policy must allow upload/add');
+  });
+
+  await check('service issues browser delegation proof', async () => {
+    const response = await request('/api/admin/delegations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        targetDid: 'did:key:z6MkwQpGkAHBvrXvKLaCbPNAQxYZRHzWjNGpMjW8Lx7v1qT1',
+        capabilities: ['space/blob/add', 'upload/add', 'upload/list'],
+        expirationSeconds: 3600,
+      }),
+    });
+    assert(response.ok, `delegation issuance returned ${response.status}`);
+    const payload = await response.json();
+    assert(payload.status === 'ok', 'expected delegation issuance status ok');
+    assert(payload.delegation?.issuerDid === manifest.serviceDid, 'delegation issuer does not match service DID');
+    assert(payload.delegation?.proofFormat === 'ucan-car-multibase-base64', 'unexpected delegation proof format');
+    assert(/^m[A-Za-z0-9+/=]+$/.test(payload.delegation?.proof ?? ''), 'missing multibase base64 delegation proof');
   });
 }
 

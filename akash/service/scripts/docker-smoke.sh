@@ -21,6 +21,7 @@ docker_args=(
   --name "$CONTAINER"
   -e "UCAN_STORE_PUBLIC_ORIGIN=${BASE_URL}"
   -e "UCAN_STORE_CONFIGURE_TOKEN=smoke-config-token"
+  -e "UCAN_STORE_ADMIN_API_TOKEN=smoke-admin-token"
 )
 
 if [ "$MODE" != "container" ]; then
@@ -65,6 +66,7 @@ run_host_smoke() {
   UCAN_STORE_SMOKE_BASE_URL="$BASE_URL" \
     UCAN_STORE_SMOKE_TIMEOUT_MS=1000 \
     UCAN_STORE_SMOKE_CONFIGURE_TOKEN=smoke-config-token \
+    UCAN_STORE_SMOKE_ADMIN_TOKEN=smoke-admin-token \
     node "$SCRIPT_DIR/smoke.mjs"
 }
 
@@ -73,6 +75,7 @@ run_container_smoke() {
     -e UCAN_STORE_SMOKE_BASE_URL=http://127.0.0.1:8080 \
     -e UCAN_STORE_SMOKE_TIMEOUT_MS=1000 \
     -e UCAN_STORE_SMOKE_CONFIGURE_TOKEN=smoke-config-token \
+    -e UCAN_STORE_SMOKE_ADMIN_TOKEN=smoke-admin-token \
     "$CONTAINER" \
     node /app/akash/service/scripts/smoke.mjs
 }

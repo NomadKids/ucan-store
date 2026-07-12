@@ -146,6 +146,29 @@ UCAN_STORE_SERVICE_DID=did:web:example.com
 
 The raw key file path can also be overridden with `UCAN_STORE_SERVICE_KEY_FILE`.
 
+## Issue a delegation to a browser DID
+
+Set a separate high-entropy `UCAN_STORE_ADMIN_API_TOKEN` in the SDL. When it is
+configured, the service exposes protected delegation issuance at both
+`/admin/delegations` and `/api/admin/delegations` (plus `/policy`). The service
+signer issues authority for the deployment's service/space DID; no Storacha
+account is involved.
+
+```bash
+curl -X POST https://<akash-service-host>/api/admin/delegations \
+  -H "Authorization: Bearer $UCAN_STORE_ADMIN_API_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "targetDid": "did:key:z6Mk...",
+    "capabilities": ["space/blob/add", "upload/add", "upload/list"],
+    "expirationSeconds": 86400
+  }'
+```
+
+Copy `delegation.proof` from the response into the PWA's delegation import
+form. Treat this bearer token as a deployment secret: it can mint upload
+authority and must never be embedded in the UCAN Store PWA.
+
 ## Debug SSH
 
 The service image includes optional key-only SSH for debugging Akash workloads. SSH is disabled unless

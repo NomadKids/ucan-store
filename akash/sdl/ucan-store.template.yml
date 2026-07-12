@@ -10,6 +10,7 @@ services:
           - global: true
     env:
       - UCAN_STORE_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
+      - UCAN_STORE_ADMIN_API_TOKEN=${ADMIN_API_TOKEN}
       - UCAN_STORE_DATA_DIR=/data/ucan-store
       - IPFS_PATH=/data/ipfs
 

@@ -80,6 +80,10 @@ function configureToken() {
   return process.env.UCAN_STORE_CONFIGURE_TOKEN?.trim() ?? '';
 }
 
+function adminToken() {
+  return process.env.UCAN_STORE_ADMIN_API_TOKEN?.trim() ?? '';
+}
+
 function requestBearerToken(req) {
   const header = req.headers.authorization ?? '';
   const value = Array.isArray(header) ? header[0] : header;
@@ -109,7 +113,12 @@ function json(res, status, payload) {
   res.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
-export function startHealthServer({ port = DEFAULT_HEALTH_PORT, onConfigurePublicOrigin } = {}) {
+export function startHealthServer({
+  port = DEFAULT_HEALTH_PORT,
+  onConfigurePublicOrigin,
+  onReadDelegationPolicy,
+  onIssueDelegation,
+} = {}) {
   const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
@@ -137,6 +146,31 @@ export function startHealthServer({ port = DEFAULT_HEALTH_PORT, onConfigurePubli
         json(res, 200, { ok: true, ...result });
       } catch (error) {
         json(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+
+    if (req.url === '/admin/delegations/policy' || req.url === '/admin/delegations') {
+      const token = adminToken();
+      if (!token || requestBearerToken(req) !== token) {
+        json(res, token ? 401 : 404, { status: 'error', error: token ? 'unauthorized' : 'delegation issuance disabled' });
+        return;
+      }
+      try {
+        if (req.method === 'GET' && req.url.endsWith('/policy')) {
+          if (!onReadDelegationPolicy) throw new Error('delegation policy unavailable');
+          json(res, 200, { status: 'ok', policy: await onReadDelegationPolicy() });
+          return;
+        }
+        if (req.method === 'POST' && req.url === '/admin/delegations') {
+          if (!onIssueDelegation) throw new Error('delegation issuer unavailable');
+          const body = await readJsonBody(req);
+          json(res, 200, { status: 'ok', delegation: await onIssueDelegation(body) });
+          return;
+        }
+        json(res, 405, { status: 'error', error: 'method not allowed' });
+      } catch (error) {
+        json(res, 400, { status: 'error', error: error instanceof Error ? error.message : String(error) });
       }
       return;
     }

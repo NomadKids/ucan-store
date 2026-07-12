@@ -59,7 +59,7 @@ function resolveFromWebNodeModules(specifier) {
   return resolveExportTarget(pkgRoot, subpath);
 }
 
-async function importFromWeb(specifier) {
+export async function importFromWeb(specifier) {
   let resolved = null;
 
   if (typeof import.meta.resolve === 'function') {

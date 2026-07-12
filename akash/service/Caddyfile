@@ -52,6 +52,23 @@
     }
   }
 
+  handle /admin/* {
+    reverse_proxy 127.0.0.1:8790 {
+      header_down -Access-Control-Allow-Headers
+      header_down -Access-Control-Allow-Methods
+      header_down -Access-Control-Allow-Origin
+    }
+  }
+
+  handle_path /api/admin/* {
+    rewrite * /admin{uri}
+    reverse_proxy 127.0.0.1:8790 {
+      header_down -Access-Control-Allow-Headers
+      header_down -Access-Control-Allow-Methods
+      header_down -Access-Control-Allow-Origin
+    }
+  }
+
   handle_path /api/* {
     reverse_proxy 127.0.0.1:8787
   }
